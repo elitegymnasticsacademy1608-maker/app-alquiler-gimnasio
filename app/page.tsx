@@ -58,7 +58,8 @@ export default function Home() {
   const [telefono, setTelefono] = useState("");
   const [tipo, setTipo] = useState("Libre"); 
   const [cantidadAtletas, setCantidadAtletas] = useState(1); 
-  // NUEVO ESTADO: Incentivo por habilidad
+  
+  // ESTADO PARA EL REGALO DE HABILIDAD
   const [esIncentivo, setEsIncentivo] = useState(false);
   const [cargando, setCargando] = useState(false);
 
@@ -103,7 +104,7 @@ export default function Home() {
         let ingMes = 0; let ingSemana = 0; let deuda = 0;
         let deudores: any[] = [];
         const clientesAgrupados: Record<string, any> = {};
-        const conteoVisitas: Record<string, number> = {};
+        const conteoVisitasFidelidad: Record<string, number> = {};
 
         const hoy = new Date();
         const mesActual = hoy.getMonth();
@@ -117,23 +118,25 @@ export default function Home() {
           const fechaEnt = new Date(ent.fecha_asistencia + 'T00:00:00');
           const monto = Number(ent.monto_generado);
           const uid = ent.usuario_id;
-          const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario;
+          const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario?.trim() || '-';
 
           if (uid) {
-            // Solo contamos las visitas para fidelidad si es "Libre"
-            if (tipoUsuarioBD === "Libre") {
-               conteoVisitas[uid] = (conteoVisitas[uid] || 0) + 1;
-            }
+            // Contamos la asistencia TOTAL sin importar quién sea
             if (!clientesAgrupados[uid]) {
               clientesAgrupados[uid] = {
                 nombre: ent.usuarios_externos?.nombre || 'Desconocido',
                 telefono: ent.usuarios_externos?.telefono || '-',
-                tipo: tipoUsuarioBD || '-',
+                tipo: tipoUsuarioBD,
                 totalPagado: 0,
-                visitas: conteoVisitas[uid] || 0
+                visitasTotales: 0
               };
             }
-            clientesAgrupados[uid].visitas = conteoVisitas[uid] || 0;
+            clientesAgrupados[uid].visitasTotales += 1;
+
+            // Contamos la fidelidad SOLO para usuarios "Libre"
+            if (tipoUsuarioBD === "Libre") {
+               conteoVisitasFidelidad[uid] = (conteoVisitasFidelidad[uid] || 0) + 1;
+            }
           }
 
           if (ent.estado_pago === 'Pendiente') {
@@ -148,7 +151,7 @@ export default function Home() {
 
         setFinanzas({ mensual: ingMes, semanal: ingSemana, deudaTotal: deuda });
         setListaDeudores(deudores);
-        setVisitasPorUsuario(conteoVisitas);
+        setVisitasPorUsuario(conteoVisitasFidelidad); // Guardamos solo las de fidelidad para la caja diaria
         const resumenArreglo = Object.values(clientesAgrupados).sort((a, b) => b.totalPagado - a.totalPagado);
         setResumenClientes(resumenArreglo);
       }
@@ -180,7 +183,8 @@ export default function Home() {
       }
 
       const visitasPrevias = visitasPorUsuario[usuarioId] || 0;
-      // La cortesía automática solo aplica si el tipo es "Libre"
+      
+      // Asegurarnos de que la cortesía automática sea estricta
       const esCortesiaFidelidad = tipoUs === "Libre" && (visitasPrevias % 11 === 10); 
       const cant = tipoUs === "Libre" ? 1 : cantidadAtletas;
       
@@ -188,7 +192,7 @@ export default function Home() {
       let estado = "Pendiente";
       let metodo = null;
 
-      // Lógica de cobro evaluando Incentivos o Fidelidad
+      // Jerarquía de cobros: Incentivo mata Fidelidad, Fidelidad mata cobro normal
       if (esIncentivo) {
         monto = 0;
         estado = "Pagado";
@@ -209,11 +213,11 @@ export default function Home() {
       }]);
       if (eR) throw eR;
 
-      // Alertas personalizadas
       if (esIncentivo) alert("🎁 ¡Excelente! Entrada de CORTESÍA registrada por NUEVA HABILIDAD.");
       else if (esCortesiaFidelidad) alert("🎉 ¡FELICIDADES! Esta es la entrada #11 de este cliente. Se ha registrado como CORTESÍA FIDELIDAD ($0).");
       else alert("¡Ingreso registrado en la caja de hoy!");
 
+      // Limpiamos todo al guardar
       setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(""); setEsIncentivo(false); setMostrarModal(false);
       cargarDatos();
     } catch (error) { 
@@ -271,13 +275,11 @@ export default function Home() {
     return (
       <main className="min-h-screen bg-blue-900 flex items-center justify-center p-4">
         <div className="bg-white p-10 rounded-2xl shadow-2xl max-w-3xl w-full text-center border-t-8 border-red-600">
-          
           <div className="flex justify-center mb-6">
              <div className="bg-white p-3 rounded-2xl shadow-md inline-block">
                <Image src="/logo.png" alt="Logo Gimnasio" width={120} height={120} className="object-contain" priority />
              </div>
           </div>
-
           <h1 className="text-4xl font-black tracking-widest text-blue-900 mb-2">CONTROL <span className="text-red-600">EXTERNO</span></h1>
           <p className="text-gray-500 font-bold mb-10">Selecciona el modo de ingreso</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -298,13 +300,11 @@ export default function Home() {
       <main className="min-h-screen bg-blue-900 flex items-center justify-center p-4">
         <div className="bg-white p-10 rounded-2xl shadow-2xl max-w-sm w-full text-center border-t-8 border-red-600 relative">
           <button onClick={() => setPantalla('inicio')} className="absolute top-4 left-4 text-gray-400 hover:text-blue-900 font-bold">← Volver</button>
-          
           <div className="flex justify-center mb-4 mt-6">
              <div className="bg-white p-2 rounded-xl shadow-sm inline-block border border-gray-100">
                <Image src="/logo.png" alt="Logo Gimnasio" width={80} height={80} className="object-contain" />
              </div>
           </div>
-          
           <h2 className="text-2xl font-black text-blue-900 mb-2">Acceso Admin</h2>
           <p className="text-gray-500 font-bold mb-8">Ingresa tu clave maestra</p>
           <form onSubmit={iniciarSesionAdmin}>
@@ -322,11 +322,9 @@ export default function Home() {
       <header className="bg-blue-900 text-white p-5 shadow-lg border-b-4 border-red-600">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4">
-            
             <div className="bg-white p-2 rounded-xl shadow-md flex-shrink-0">
                <Image src="/logo.png" alt="Logo Gimnasio" width={50} height={50} className="object-contain" priority />
             </div>
-
             <div>
               <h1 className="text-2xl font-black tracking-widest leading-none">CONTROL <span className="text-red-500">EXTERNO</span></h1>
               <span className={`px-3 py-1 text-xs font-bold rounded-full border border-white/30 ${rolActivo === 'admin' ? 'bg-green-600' : 'bg-purple-600'} inline-block mt-1`}>Modo {rolActivo === 'admin' ? 'Admin' : 'Recepción'}</span>
@@ -375,7 +373,7 @@ export default function Home() {
                   <div className={`p-4 text-white font-bold flex justify-between items-center ${item.estado_pago === 'Pendiente' ? 'bg-red-600' : 'bg-green-600'}`}>
                     <span className="pr-2">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
                     <div className="flex items-center gap-3">
-                      <span>{item.monto_generado === 0 ? (item.metodo_pago === 'Incentivo Habilidad' ? 'INCENTIVO' : 'CORTESÍA') : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
+                      <span>{item.monto_generado === 0 ? 'CORTESÍA' : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
                       <button onClick={() => eliminarIngreso(item.id)} className="text-white opacity-70 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs" title="Eliminar este registro">❌</button>
                     </div>
                   </div>
@@ -475,19 +473,18 @@ export default function Home() {
                         <tr key={i} className="hover:bg-green-50 transition-colors">
                           <td className="p-3 border-b font-bold text-gray-800">{c.nombre}</td>
                           <td className="p-3 border-b text-sm text-gray-600">{c.tipo}</td>
-                          <td className="p-3 border-b text-center font-bold text-blue-900">{c.visitas}</td>
+                          <td className="p-3 border-b text-center font-bold text-blue-900">{c.visitasTotales}</td>
                           
-                          {/* Modificación para excluir a Profesores de la barra de progreso */}
                           <td className="p-3 border-b text-sm">
                             {c.tipo === "Libre" ? (
                               <>
                                 <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-                                  <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(c.visitas % 11) * 10}%` }}></div>
+                                  <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(c.visitasTotales % 11) * 10}%` }}></div>
                                 </div>
-                                <span className="text-xs text-gray-500 mt-1 block">{c.visitas % 11}/10 para cortesía</span>
+                                <span className="text-xs text-gray-500 mt-1 block">{c.visitasTotales % 11}/10 para cortesía</span>
                               </>
                             ) : (
-                              <span className="text-xs text-gray-400 font-bold block mt-1">No aplica</span>
+                              <span className="text-xs text-gray-400 font-bold block mt-1">No aplica para profesores</span>
                             )}
                           </td>
 
@@ -556,8 +553,8 @@ export default function Home() {
                 </div>
               )}
 
-              {/* CHECKBOX DE INCENTIVO POR HABILIDAD (SOLO VISTA RECEPCIÓN/ADMIN) */}
-              <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-200 cursor-pointer" onClick={() => setEsIncentivo(!esIncentivo)}>
+              {/* BOTON DE INCENTIVO POR HABILIDAD */}
+              <div className="flex items-center gap-2 bg-yellow-50 hover:bg-yellow-100 p-3 rounded-lg border border-yellow-200 cursor-pointer transition-colors" onClick={() => setEsIncentivo(!esIncentivo)}>
                  <input type="checkbox" id="incentivo" checked={esIncentivo} onChange={(e) => setEsIncentivo(e.target.checked)} className="w-5 h-5 accent-yellow-600 cursor-pointer pointer-events-none" />
                  <label className="text-sm font-bold text-yellow-800 cursor-pointer pointer-events-none">🎁 Dar cortesía hoy (Habilidad Nueva)</label>
               </div>
