@@ -59,7 +59,6 @@ export default function Home() {
   const [tipo, setTipo] = useState("Libre"); 
   const [cantidadAtletas, setCantidadAtletas] = useState(1); 
   
-  // ESTADO PARA EL REGALO DE HABILIDAD
   const [esIncentivo, setEsIncentivo] = useState(false);
   const [cargando, setCargando] = useState(false);
 
@@ -71,6 +70,11 @@ export default function Home() {
   const [mostrarModalCobro, setMostrarModalCobro] = useState(false);
   const [entrenamientoACobrar, setEntrenamientoACobrar] = useState<any>(null);
   const [metodoPago, setMetodoPago] = useState("Efectivo");
+
+  // NUEVOS ESTADOS: Filtros y Búsqueda
+  const [filtroCaja, setFiltroCaja] = useState('pendientes'); // 'pendientes' | 'pagados'
+  const [busquedaCaja, setBusquedaCaja] = useState("");
+  const [busquedaDeuda, setBusquedaDeuda] = useState("");
 
   const tarifaPorAtletaProfesor = 10000; 
 
@@ -121,7 +125,6 @@ export default function Home() {
           const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario?.trim() || '-';
 
           if (uid) {
-            // Contamos la asistencia TOTAL sin importar quién sea
             if (!clientesAgrupados[uid]) {
               clientesAgrupados[uid] = {
                 nombre: ent.usuarios_externos?.nombre || 'Desconocido',
@@ -133,7 +136,6 @@ export default function Home() {
             }
             clientesAgrupados[uid].visitasTotales += 1;
 
-            // Contamos la fidelidad SOLO para usuarios "Libre"
             if (tipoUsuarioBD === "Libre") {
                conteoVisitasFidelidad[uid] = (conteoVisitasFidelidad[uid] || 0) + 1;
             }
@@ -151,7 +153,7 @@ export default function Home() {
 
         setFinanzas({ mensual: ingMes, semanal: ingSemana, deudaTotal: deuda });
         setListaDeudores(deudores);
-        setVisitasPorUsuario(conteoVisitasFidelidad); // Guardamos solo las de fidelidad para la caja diaria
+        setVisitasPorUsuario(conteoVisitasFidelidad);
         const resumenArreglo = Object.values(clientesAgrupados).sort((a, b) => b.totalPagado - a.totalPagado);
         setResumenClientes(resumenArreglo);
       }
@@ -183,8 +185,6 @@ export default function Home() {
       }
 
       const visitasPrevias = visitasPorUsuario[usuarioId] || 0;
-      
-      // Asegurarnos de que la cortesía automática sea estricta
       const esCortesiaFidelidad = tipoUs === "Libre" && (visitasPrevias % 11 === 10); 
       const cant = tipoUs === "Libre" ? 1 : cantidadAtletas;
       
@@ -192,7 +192,6 @@ export default function Home() {
       let estado = "Pendiente";
       let metodo = null;
 
-      // Jerarquía de cobros: Incentivo mata Fidelidad, Fidelidad mata cobro normal
       if (esIncentivo) {
         monto = 0;
         estado = "Pagado";
@@ -217,8 +216,12 @@ export default function Home() {
       else if (esCortesiaFidelidad) alert("🎉 ¡FELICIDADES! Esta es la entrada #11 de este cliente. Se ha registrado como CORTESÍA FIDELIDAD ($0).");
       else alert("¡Ingreso registrado en la caja de hoy!");
 
-      // Limpiamos todo al guardar
       setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(""); setEsIncentivo(false); setMostrarModal(false);
+      
+      // Auto-cambiamos a la pestaña correcta para que vean el registro
+      if (estado === "Pagado") setFiltroCaja("pagados");
+      else setFiltroCaja("pendientes");
+
       cargarDatos();
     } catch (error) { 
       alert("Error: " + (error as Error).message); 
@@ -269,7 +272,21 @@ export default function Home() {
     } catch (error) { alert("Error al eliminar: " + (error as Error).message); }
   };
 
+  // --- LOGICA DE FILTROS ---
   const totalPersonasHoy = listaEntrenamientos.reduce((suma, item) => suma + Number(item.cantidad_atletas), 0);
+  
+  const entrenamientosFiltrados = listaEntrenamientos.filter(item => {
+    const cumpleEstado = filtroCaja === 'pendientes' ? item.estado_pago === 'Pendiente' : item.estado_pago === 'Pagado';
+    const nombre = (item.usuarios_externos?.nombre || "").toLowerCase();
+    const cumpleBusqueda = nombre.includes(busquedaCaja.toLowerCase());
+    return cumpleEstado && cumpleBusqueda;
+  });
+
+  const deudasFiltradas = listaDeudores.filter(deuda => {
+    const nombre = (deuda.usuarios_externos?.nombre || "").toLowerCase();
+    return nombre.includes(busquedaDeuda.toLowerCase());
+  });
+
 
   if (pantalla === 'inicio') {
     return (
@@ -366,34 +383,60 @@ export default function Home() {
             Total Personas Hoy: <span className="text-2xl text-red-600">{totalPersonasHoy}</span>
           </div>
 
+          {/* NUEVO: BARRA DE BÚSQUEDA Y PESTAÑAS */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            <div className="flex bg-gray-200 p-1 rounded-xl w-full md:w-auto">
+               <button onClick={() => setFiltroCaja('pendientes')} className={`flex-1 md:px-6 py-2 rounded-lg font-bold text-sm transition-all ${filtroCaja === 'pendientes' ? 'bg-white text-red-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                 Faltan por cobrar
+               </button>
+               <button onClick={() => setFiltroCaja('pagados')} className={`flex-1 md:px-6 py-2 rounded-lg font-bold text-sm transition-all ${filtroCaja === 'pagados' ? 'bg-white text-green-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                 Ya pagaron / Cortesías
+               </button>
+            </div>
+            
+            <div className="relative w-full md:w-72">
+               <span className="absolute left-3 top-3 text-gray-400">🔍</span>
+               <input 
+                 type="text" 
+                 placeholder="Buscar persona hoy..." 
+                 value={busquedaCaja}
+                 onChange={(e) => setBusquedaCaja(e.target.value)}
+                 className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-900 focus:outline-none text-black transition-colors"
+               />
+            </div>
+          </div>
+
           {cargandoLista ? <p className="text-center font-bold text-gray-400 mt-10">Cargando...</p> : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {listaEntrenamientos.map((item, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col relative">
+              {entrenamientosFiltrados.map((item, i) => (
+                <div key={i} className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col relative animate-fade-in">
                   <div className={`p-4 text-white font-bold flex justify-between items-center ${item.estado_pago === 'Pendiente' ? 'bg-red-600' : 'bg-green-600'}`}>
-                    <span className="pr-2">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
+                    <span className="pr-2 truncate">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
                     <div className="flex items-center gap-3">
-                      <span>{item.monto_generado === 0 ? 'CORTESÍA' : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
+                      <span>{item.monto_generado === 0 ? (item.metodo_pago === 'Incentivo Habilidad' ? 'INCENTIVO' : 'CORTESÍA') : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
                       <button onClick={() => eliminarIngreso(item.id)} className="text-white opacity-70 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs" title="Eliminar este registro">❌</button>
                     </div>
                   </div>
                   <div className="p-5 flex-grow text-gray-700">
                     <p><span className="font-bold">Tipo:</span> {item.usuarios_externos?.tipo_usuario}</p>
                     <p className="text-2xl font-black text-blue-900 mt-2">${item.monto_generado.toLocaleString('es-CO')}</p>
+                    {item.estado_pago === 'Pagado' && item.monto_generado > 0 && <p className="text-xs text-gray-400 font-bold mt-1">Pagado con {item.metodo_pago}</p>}
                     {item.monto_generado === 0 && <p className="text-xs text-green-600 font-bold mt-1">⭐ {item.metodo_pago}</p>}
                   </div>
                   {item.estado_pago === 'Pendiente' ? (
                     <button onClick={() => { setEntrenamientoACobrar(item); setMostrarModalCobro(true); }} className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 transition-colors">Cobrar Salida</button>
                   ) : (
-                    <button onClick={() => reversarPago(item.id)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-red-600 font-bold py-3 transition-colors text-sm border-t border-gray-200">
-                      ↩ Anular Pago
+                    <button onClick={() => reversarPago(item.id)} className="w-full bg-gray-50 hover:bg-gray-200 text-gray-400 hover:text-red-600 font-bold py-3 transition-colors text-sm border-t border-gray-200">
+                      ↩ Anular Pago (Volver a Deuda)
                     </button>
                   )}
                 </div>
               ))}
-              {listaEntrenamientos.length === 0 && (
+              {entrenamientosFiltrados.length === 0 && (
                 <div className="col-span-full text-center text-gray-400 py-16 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
-                  <p className="text-xl font-bold mb-2">La caja de hoy está vacía</p>
+                  <p className="text-xl font-bold mb-2">
+                    {busquedaCaja ? "No se encontró a nadie con ese nombre" : (filtroCaja === 'pendientes' ? "¡Todos han pagado! La lista de pendientes está vacía." : "Aún no hay pagos registrados hoy.")}
+                  </p>
                 </div>
               )}
             </div>
@@ -436,15 +479,32 @@ export default function Home() {
 
           {verDetalleDeuda && (
             <div className="bg-white rounded-2xl shadow-xl p-6 border-t-4 border-red-600 animate-fade-in mb-8">
-              <h3 className="text-2xl font-bold text-red-600 mb-4">Detalle de Deudores</h3>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                 <h3 className="text-2xl font-bold text-red-600">Detalle de Deudores</h3>
+                 {/* NUEVO: BUSCADOR EN DEUDAS */}
+                 <div className="relative w-full md:w-64">
+                   <span className="absolute left-3 top-2 text-gray-400">🔍</span>
+                   <input 
+                     type="text" 
+                     placeholder="Buscar deudor..." 
+                     value={busquedaDeuda}
+                     onChange={(e) => setBusquedaDeuda(e.target.value)}
+                     className="w-full pl-9 pr-3 py-2 rounded-lg border-2 border-gray-200 focus:border-red-600 focus:outline-none text-black"
+                   />
+                 </div>
+              </div>
+
               {listaDeudores.length === 0 ? <p className="text-gray-500 font-bold">Nadie debe dinero en este momento.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead><tr className="bg-gray-100 text-gray-700"><th className="p-3 border-b">Fecha</th><th className="p-3 border-b">Nombre</th><th className="p-3 border-b">Monto</th><th className="p-3 border-b">Acción</th></tr></thead>
                     <tbody>
-                      {listaDeudores.map((deuda, i) => (
+                      {deudasFiltradas.map((deuda, i) => (
                         <tr key={i} className="hover:bg-red-50"><td className="p-3 border-b text-sm">{deuda.fecha_asistencia}</td><td className="p-3 border-b font-bold">{deuda.usuarios_externos?.nombre}</td><td className="p-3 border-b text-red-600 font-black">${deuda.monto_generado.toLocaleString('es-CO')}</td><td className="p-3 border-b"><div className="flex space-x-2"><button onClick={() => { setEntrenamientoACobrar(deuda); setMostrarModalCobro(true); }} className="bg-blue-900 text-white px-3 py-1 rounded text-sm font-bold hover:bg-blue-800 transition-colors">Saldar</button><button onClick={() => eliminarIngreso(deuda.id)} className="bg-red-100 text-red-600 px-3 py-1 rounded text-sm font-bold hover:bg-red-200" title="Eliminar registro">❌</button></div></td></tr>
                       ))}
+                      {deudasFiltradas.length === 0 && (
+                        <tr><td colSpan={4} className="p-4 text-center text-gray-500">No se encontró a nadie con ese nombre en la lista de deudas.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
