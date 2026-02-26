@@ -58,6 +58,8 @@ export default function Home() {
   const [telefono, setTelefono] = useState("");
   const [tipo, setTipo] = useState("Libre"); 
   const [cantidadAtletas, setCantidadAtletas] = useState(1); 
+  // NUEVO ESTADO: Incentivo por habilidad
+  const [esIncentivo, setEsIncentivo] = useState(false);
   const [cargando, setCargando] = useState(false);
 
   const [mostrarModalInscripcion, setMostrarModalInscripcion] = useState(false);
@@ -111,24 +113,27 @@ export default function Home() {
         inicioSemana.setDate(hoy.getDate() - hoy.getDay());
         inicioSemana.setHours(0,0,0,0);
 
-        // AQUÍ ESTÁ LA MAGIA: Le pusimos "ent: any" para que no marque error en el nombre y teléfono
         todosLosRegistros.forEach((ent: any) => {
           const fechaEnt = new Date(ent.fecha_asistencia + 'T00:00:00');
           const monto = Number(ent.monto_generado);
           const uid = ent.usuario_id;
+          const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario;
 
           if (uid) {
-            conteoVisitas[uid] = (conteoVisitas[uid] || 0) + 1;
+            // Solo contamos las visitas para fidelidad si es "Libre"
+            if (tipoUsuarioBD === "Libre") {
+               conteoVisitas[uid] = (conteoVisitas[uid] || 0) + 1;
+            }
             if (!clientesAgrupados[uid]) {
               clientesAgrupados[uid] = {
                 nombre: ent.usuarios_externos?.nombre || 'Desconocido',
                 telefono: ent.usuarios_externos?.telefono || '-',
-                tipo: ent.usuarios_externos?.tipo_usuario || '-',
+                tipo: tipoUsuarioBD || '-',
                 totalPagado: 0,
-                visitas: 0
+                visitas: conteoVisitas[uid] || 0
               };
             }
-            clientesAgrupados[uid].visitas += 1;
+            clientesAgrupados[uid].visitas = conteoVisitas[uid] || 0;
           }
 
           if (ent.estado_pago === 'Pendiente') {
@@ -175,11 +180,28 @@ export default function Home() {
       }
 
       const visitasPrevias = visitasPorUsuario[usuarioId] || 0;
-      const esCortesia = (visitasPrevias % 11 === 10); 
+      // La cortesía automática solo aplica si el tipo es "Libre"
+      const esCortesiaFidelidad = tipoUs === "Libre" && (visitasPrevias % 11 === 10); 
       const cant = tipoUs === "Libre" ? 1 : cantidadAtletas;
-      const monto = esCortesia ? 0 : (tipoUs === "Libre" ? 10000 : (tarifaPorAtletaProfesor * cantidadAtletas));
-      const estado = esCortesia ? "Pagado" : "Pendiente";
-      const metodo = esCortesia ? "Cortesía Fidelidad" : null;
+      
+      let monto = 0;
+      let estado = "Pendiente";
+      let metodo = null;
+
+      // Lógica de cobro evaluando Incentivos o Fidelidad
+      if (esIncentivo) {
+        monto = 0;
+        estado = "Pagado";
+        metodo = "Incentivo Habilidad";
+      } else if (esCortesiaFidelidad) {
+        monto = 0;
+        estado = "Pagado";
+        metodo = "Cortesía Fidelidad";
+      } else {
+        monto = tipoUs === "Libre" ? 10000 : (tarifaPorAtletaProfesor * cantidadAtletas);
+        estado = "Pendiente";
+      }
+
       const hoyStr = obtenerFechaHoy();
 
       const { error: eR } = await supabase.from("registro_entrenamientos").insert([{ 
@@ -187,10 +209,12 @@ export default function Home() {
       }]);
       if (eR) throw eR;
 
-      if (esCortesia) alert("🎉 ¡FELICIDADES! Esta es la entrada #11 de este cliente. Se ha registrado como CORTESÍA ($0).");
+      // Alertas personalizadas
+      if (esIncentivo) alert("🎁 ¡Excelente! Entrada de CORTESÍA registrada por NUEVA HABILIDAD.");
+      else if (esCortesiaFidelidad) alert("🎉 ¡FELICIDADES! Esta es la entrada #11 de este cliente. Se ha registrado como CORTESÍA FIDELIDAD ($0).");
       else alert("¡Ingreso registrado en la caja de hoy!");
 
-      setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(""); setMostrarModal(false);
+      setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(""); setEsIncentivo(false); setMostrarModal(false);
       cargarDatos();
     } catch (error) { 
       alert("Error: " + (error as Error).message); 
@@ -334,7 +358,7 @@ export default function Home() {
               <div className="bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-bold shadow-sm hidden md:block">
                 Total Personas: <span className="text-xl text-red-600">{totalPersonasHoy}</span>
               </div>
-              <button onClick={() => setMostrarModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-lg transform hover:scale-105 transition-all">
+              <button onClick={() => {setMostrarModal(true); setEsIncentivo(false);}} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-lg transform hover:scale-105 transition-all">
                 + Toma de Asistencia
               </button>
             </div>
@@ -351,14 +375,14 @@ export default function Home() {
                   <div className={`p-4 text-white font-bold flex justify-between items-center ${item.estado_pago === 'Pendiente' ? 'bg-red-600' : 'bg-green-600'}`}>
                     <span className="pr-2">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
                     <div className="flex items-center gap-3">
-                      <span>{item.monto_generado === 0 ? 'CORTESÍA' : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
+                      <span>{item.monto_generado === 0 ? (item.metodo_pago === 'Incentivo Habilidad' ? 'INCENTIVO' : 'CORTESÍA') : (item.estado_pago === 'Pendiente' ? 'DEUDA' : 'OK')}</span>
                       <button onClick={() => eliminarIngreso(item.id)} className="text-white opacity-70 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs" title="Eliminar este registro">❌</button>
                     </div>
                   </div>
                   <div className="p-5 flex-grow text-gray-700">
                     <p><span className="font-bold">Tipo:</span> {item.usuarios_externos?.tipo_usuario}</p>
                     <p className="text-2xl font-black text-blue-900 mt-2">${item.monto_generado.toLocaleString('es-CO')}</p>
-                    {item.monto_generado === 0 && <p className="text-xs text-green-600 font-bold mt-1">⭐ Entrada #11 (Fidelidad)</p>}
+                    {item.monto_generado === 0 && <p className="text-xs text-green-600 font-bold mt-1">⭐ {item.metodo_pago}</p>}
                   </div>
                   {item.estado_pago === 'Pendiente' ? (
                     <button onClick={() => { setEntrenamientoACobrar(item); setMostrarModalCobro(true); }} className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 transition-colors">Cobrar Salida</button>
@@ -452,12 +476,21 @@ export default function Home() {
                           <td className="p-3 border-b font-bold text-gray-800">{c.nombre}</td>
                           <td className="p-3 border-b text-sm text-gray-600">{c.tipo}</td>
                           <td className="p-3 border-b text-center font-bold text-blue-900">{c.visitas}</td>
+                          
+                          {/* Modificación para excluir a Profesores de la barra de progreso */}
                           <td className="p-3 border-b text-sm">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-                              <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(c.visitas % 11) * 10}%` }}></div>
-                            </div>
-                            <span className="text-xs text-gray-500 mt-1 block">{c.visitas % 11}/10 para cortesía</span>
+                            {c.tipo === "Libre" ? (
+                              <>
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                                  <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(c.visitas % 11) * 10}%` }}></div>
+                                </div>
+                                <span className="text-xs text-gray-500 mt-1 block">{c.visitas % 11}/10 para cortesía</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-400 font-bold block mt-1">No aplica</span>
+                            )}
                           </td>
+
                           <td className="p-3 border-b text-right text-green-700 font-black">${c.totalPagado.toLocaleString('es-CO')}</td>
                         </tr>
                       ))}
@@ -515,14 +548,22 @@ export default function Home() {
                   </select>
                 </>
               )}
+              
               {(tipo === "Profesor" || usuariosDB.find(u => u.id === usuarioSeleccionado)?.tipo_usuario === "Profesor") && (
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                   <label className="block text-blue-900 font-bold mb-2">¿Cuántos atletas trae hoy?</label>
                   <input type="number" min="1" required value={cantidadAtletas} onChange={(e) => setCantidadAtletas(Number(e.target.value))} className="w-full border-2 border-blue-200 p-3 rounded-lg text-black" />
                 </div>
               )}
+
+              {/* CHECKBOX DE INCENTIVO POR HABILIDAD (SOLO VISTA RECEPCIÓN/ADMIN) */}
+              <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-200 cursor-pointer" onClick={() => setEsIncentivo(!esIncentivo)}>
+                 <input type="checkbox" id="incentivo" checked={esIncentivo} onChange={(e) => setEsIncentivo(e.target.checked)} className="w-5 h-5 accent-yellow-600 cursor-pointer pointer-events-none" />
+                 <label className="text-sm font-bold text-yellow-800 cursor-pointer pointer-events-none">🎁 Dar cortesía hoy (Habilidad Nueva)</label>
+              </div>
+
               <div className="flex justify-end space-x-2 mt-4">
-                <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button type="button" onClick={() => {setMostrarModal(false); setEsIncentivo(false);}} className="px-4 py-2 font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
                 <button type="submit" disabled={cargando} className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg">{cargando ? "Guardando..." : "Registrar Entrada"}</button>
               </div>
             </form>
