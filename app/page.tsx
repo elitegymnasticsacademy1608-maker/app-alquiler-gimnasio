@@ -71,15 +71,86 @@ export default function Home() {
   const [entrenamientoACobrar, setEntrenamientoACobrar] = useState<any>(null);
   const [metodoPago, setMetodoPago] = useState("Efectivo");
 
-  // NUEVOS ESTADOS: Filtros y Búsqueda
-  const [filtroCaja, setFiltroCaja] = useState('pendientes'); // 'pendientes' | 'pagados'
+  // ESTADOS DE FILTROS Y BÚSQUEDA
+  const [filtroCaja, setFiltroCaja] = useState('pendientes');
   const [busquedaCaja, setBusquedaCaja] = useState("");
   const [busquedaDeuda, setBusquedaDeuda] = useState("");
+
+  // NUEVOS ESTADOS: Filtros de Meses para Finanzas
+  const [registrosGlobales, setRegistrosGlobales] = useState<any[]>([]);
+  const [mesConsulta, setMesConsulta] = useState(new Date().getMonth());
+  const [anioConsulta, setAnioConsulta] = useState(new Date().getFullYear());
+  const mesesDelAno = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
   const tarifaPorAtletaProfesor = 10000; 
 
   const obtenerFechaHoy = () => {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  };
+
+  // NUEVO: Función para formatear fechas con el día de la semana
+  const formatearFechaConDia = (fechaStr: string) => {
+    if (!fechaStr) return '';
+    const d = new Date(fechaStr + 'T00:00:00');
+    return d.toLocaleDateString('es-CO', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  // NUEVO: Motor que procesa las finanzas basado en el mes seleccionado
+  const procesarFinanzas = (registros: any[], mes: number, anio: number) => {
+    let ingMes = 0; let ingSemana = 0; let deuda = 0;
+    let deudores: any[] = [];
+    const clientesAgrupados: Record<string, any> = {};
+    const conteoVisitasFidelidad: Record<string, number> = {};
+
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+    inicioSemana.setHours(0,0,0,0);
+
+    registros.forEach((ent: any) => {
+      const fechaEnt = new Date(ent.fecha_asistencia + 'T00:00:00');
+      const monto = Number(ent.monto_generado);
+      const uid = ent.usuario_id;
+      const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario?.trim() || '-';
+
+      if (uid) {
+        if (!clientesAgrupados[uid]) {
+          clientesAgrupados[uid] = {
+            nombre: ent.usuarios_externos?.nombre || 'Desconocido',
+            telefono: ent.usuarios_externos?.telefono || '-',
+            tipo: tipoUsuarioBD,
+            totalPagado: 0,
+            visitasTotales: 0
+          };
+        }
+        clientesAgrupados[uid].visitasTotales += 1;
+
+        if (tipoUsuarioBD === "Libre") {
+           conteoVisitasFidelidad[uid] = (conteoVisitasFidelidad[uid] || 0) + 1;
+        }
+      }
+
+      if (ent.estado_pago === 'Pendiente') {
+        deuda += monto;
+        deudores.push(ent);
+      } else if (ent.estado_pago === 'Pagado') {
+        
+        // Aquí filtramos el mes y el año según los selectores de pantalla
+        if (fechaEnt.getMonth() === mes && fechaEnt.getFullYear() === anio) {
+          ingMes += monto;
+        }
+        if (fechaEnt >= inicioSemana) {
+          ingSemana += monto;
+        }
+        if (uid) clientesAgrupados[uid].totalPagado += monto;
+      }
+    });
+
+    setFinanzas({ mensual: ingMes, semanal: ingSemana, deudaTotal: deuda });
+    setListaDeudores(deudores);
+    setVisitasPorUsuario(conteoVisitasFidelidad);
+    const resumenArreglo = Object.values(clientesAgrupados).sort((a, b) => b.totalPagado - a.totalPagado);
+    setResumenClientes(resumenArreglo);
   };
 
   const cargarDatos = async () => {
@@ -105,57 +176,8 @@ export default function Home() {
         .select(`id, monto_generado, estado_pago, fecha_asistencia, usuario_id, usuarios_externos (nombre, telefono, tipo_usuario)`);
 
       if (todosLosRegistros) {
-        let ingMes = 0; let ingSemana = 0; let deuda = 0;
-        let deudores: any[] = [];
-        const clientesAgrupados: Record<string, any> = {};
-        const conteoVisitasFidelidad: Record<string, number> = {};
-
-        const hoy = new Date();
-        const mesActual = hoy.getMonth();
-        const añoActual = hoy.getFullYear();
-        
-        const inicioSemana = new Date(hoy);
-        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
-        inicioSemana.setHours(0,0,0,0);
-
-        todosLosRegistros.forEach((ent: any) => {
-          const fechaEnt = new Date(ent.fecha_asistencia + 'T00:00:00');
-          const monto = Number(ent.monto_generado);
-          const uid = ent.usuario_id;
-          const tipoUsuarioBD = ent.usuarios_externos?.tipo_usuario?.trim() || '-';
-
-          if (uid) {
-            if (!clientesAgrupados[uid]) {
-              clientesAgrupados[uid] = {
-                nombre: ent.usuarios_externos?.nombre || 'Desconocido',
-                telefono: ent.usuarios_externos?.telefono || '-',
-                tipo: tipoUsuarioBD,
-                totalPagado: 0,
-                visitasTotales: 0
-              };
-            }
-            clientesAgrupados[uid].visitasTotales += 1;
-
-            if (tipoUsuarioBD === "Libre") {
-               conteoVisitasFidelidad[uid] = (conteoVisitasFidelidad[uid] || 0) + 1;
-            }
-          }
-
-          if (ent.estado_pago === 'Pendiente') {
-            deuda += monto;
-            deudores.push(ent);
-          } else if (ent.estado_pago === 'Pagado') {
-            if (fechaEnt.getMonth() === mesActual && fechaEnt.getFullYear() === añoActual) ingMes += monto;
-            if (fechaEnt >= inicioSemana) ingSemana += monto;
-            if (uid) clientesAgrupados[uid].totalPagado += monto;
-          }
-        });
-
-        setFinanzas({ mensual: ingMes, semanal: ingSemana, deudaTotal: deuda });
-        setListaDeudores(deudores);
-        setVisitasPorUsuario(conteoVisitasFidelidad);
-        const resumenArreglo = Object.values(clientesAgrupados).sort((a, b) => b.totalPagado - a.totalPagado);
-        setResumenClientes(resumenArreglo);
+        setRegistrosGlobales(todosLosRegistros);
+        procesarFinanzas(todosLosRegistros, mesConsulta, anioConsulta);
       }
     } catch (error) {
       console.error("Error al cargar:", (error as Error).message);
@@ -167,6 +189,13 @@ export default function Home() {
   useEffect(() => { 
     if (pantalla === 'app') cargarDatos(); 
   }, [pantalla]);
+
+  // Recalcular finanzas si el administrador cambia de mes
+  useEffect(() => {
+    if (registrosGlobales.length > 0) {
+      procesarFinanzas(registrosGlobales, mesConsulta, anioConsulta);
+    }
+  }, [mesConsulta, anioConsulta, registrosGlobales]);
 
   const guardarIngreso = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,7 +247,6 @@ export default function Home() {
 
       setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(""); setEsIncentivo(false); setMostrarModal(false);
       
-      // Auto-cambiamos a la pestaña correcta para que vean el registro
       if (estado === "Pagado") setFiltroCaja("pagados");
       else setFiltroCaja("pendientes");
 
@@ -272,7 +300,6 @@ export default function Home() {
     } catch (error) { alert("Error al eliminar: " + (error as Error).message); }
   };
 
-  // --- LOGICA DE FILTROS ---
   const totalPersonasHoy = listaEntrenamientos.reduce((suma, item) => suma + Number(item.cantidad_atletas), 0);
   
   const entrenamientosFiltrados = listaEntrenamientos.filter(item => {
@@ -367,7 +394,8 @@ export default function Home() {
           <div className="flex justify-between items-center mb-6 border-b-2 border-gray-200 pb-2">
             <div>
               <h2 className="text-3xl font-extrabold text-blue-900">Ingresos de Hoy</h2>
-              <span className="text-gray-500 font-bold">{new Date().toLocaleDateString('es-CO')}</span>
+              {/* FECHA MODIFICADA PARA MOSTRAR EL DÍA DE LA SEMANA */}
+              <span className="text-gray-500 font-bold capitalize">{new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-bold shadow-sm hidden md:block">
@@ -383,7 +411,6 @@ export default function Home() {
             Total Personas Hoy: <span className="text-2xl text-red-600">{totalPersonasHoy}</span>
           </div>
 
-          {/* NUEVO: BARRA DE BÚSQUEDA Y PESTAÑAS */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
             <div className="flex bg-gray-200 p-1 rounded-xl w-full md:w-auto">
                <button onClick={() => setFiltroCaja('pendientes')} className={`flex-1 md:px-6 py-2 rounded-lg font-bold text-sm transition-all ${filtroCaja === 'pendientes' ? 'bg-white text-red-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -446,17 +473,30 @@ export default function Home() {
 
       {vistaActiva === 'finanzas' && rolActivo === 'admin' && (
         <div className="max-w-6xl mx-auto p-6 mt-4">
-          <h2 className="text-3xl font-extrabold text-blue-900 border-b-2 border-gray-200 pb-2 mb-6">Resumen Financiero</h2>
+          
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b-2 border-gray-200 pb-2">
+            <h2 className="text-3xl font-extrabold text-blue-900">Resumen Financiero</h2>
+            {/* NUEVO: SELECTORES DE MES Y AÑO */}
+            <div className="flex gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-100">
+              <select value={mesConsulta} onChange={e => setMesConsulta(Number(e.target.value))} className="bg-transparent border-none text-blue-900 font-bold outline-none cursor-pointer pr-2">
+                {mesesDelAno.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select value={anioConsulta} onChange={e => setAnioConsulta(Number(e.target.value))} className="bg-transparent border-none text-gray-500 font-bold outline-none cursor-pointer">
+                {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <div className="bg-white p-6 rounded-2xl shadow-md border-l-8 border-blue-500">
-              <p className="text-gray-500 font-bold mb-1">Ingresos esta Semana</p>
+              <p className="text-gray-500 font-bold mb-1">Ingresos de esta Semana</p>
               <p className="text-4xl font-black text-blue-900">${finanzas.semanal.toLocaleString('es-CO')}</p>
             </div>
             
             <div onClick={() => { setVerDetallePagos(!verDetallePagos); setVerDetalleDeuda(false); }} className="bg-green-600 p-6 rounded-2xl shadow-xl cursor-pointer hover:bg-green-700 transition-colors text-white transform hover:scale-105">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-bold mb-1 opacity-90">Ingresos Totales (Mes)</p>
+                  <p className="font-bold mb-1 opacity-90">Ingresos Totales ({mesesDelAno[mesConsulta]})</p>
                   <p className="text-4xl font-black">${finanzas.mensual.toLocaleString('es-CO')}</p>
                 </div>
                 <span className="text-3xl">📊</span>
@@ -481,7 +521,6 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-xl p-6 border-t-4 border-red-600 animate-fade-in mb-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                  <h3 className="text-2xl font-bold text-red-600">Detalle de Deudores</h3>
-                 {/* NUEVO: BUSCADOR EN DEUDAS */}
                  <div className="relative w-full md:w-64">
                    <span className="absolute left-3 top-2 text-gray-400">🔍</span>
                    <input 
@@ -497,10 +536,21 @@ export default function Home() {
               {listaDeudores.length === 0 ? <p className="text-gray-500 font-bold">Nadie debe dinero en este momento.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead><tr className="bg-gray-100 text-gray-700"><th className="p-3 border-b">Fecha</th><th className="p-3 border-b">Nombre</th><th className="p-3 border-b">Monto</th><th className="p-3 border-b">Acción</th></tr></thead>
+                    <thead><tr className="bg-gray-100 text-gray-700"><th className="p-3 border-b">Día y Fecha</th><th className="p-3 border-b">Nombre</th><th className="p-3 border-b">Monto</th><th className="p-3 border-b">Acción</th></tr></thead>
                     <tbody>
                       {deudasFiltradas.map((deuda, i) => (
-                        <tr key={i} className="hover:bg-red-50"><td className="p-3 border-b text-sm">{deuda.fecha_asistencia}</td><td className="p-3 border-b font-bold">{deuda.usuarios_externos?.nombre}</td><td className="p-3 border-b text-red-600 font-black">${deuda.monto_generado.toLocaleString('es-CO')}</td><td className="p-3 border-b"><div className="flex space-x-2"><button onClick={() => { setEntrenamientoACobrar(deuda); setMostrarModalCobro(true); }} className="bg-blue-900 text-white px-3 py-1 rounded text-sm font-bold hover:bg-blue-800 transition-colors">Saldar</button><button onClick={() => eliminarIngreso(deuda.id)} className="bg-red-100 text-red-600 px-3 py-1 rounded text-sm font-bold hover:bg-red-200" title="Eliminar registro">❌</button></div></td></tr>
+                        <tr key={i} className="hover:bg-red-50">
+                          {/* FECHA MODIFICADA PARA MOSTRAR EL DÍA DE LA SEMANA */}
+                          <td className="p-3 border-b text-sm font-bold text-gray-500 capitalize">{formatearFechaConDia(deuda.fecha_asistencia)}</td>
+                          <td className="p-3 border-b font-bold">{deuda.usuarios_externos?.nombre}</td>
+                          <td className="p-3 border-b text-red-600 font-black">${deuda.monto_generado.toLocaleString('es-CO')}</td>
+                          <td className="p-3 border-b">
+                            <div className="flex space-x-2">
+                              <button onClick={() => { setEntrenamientoACobrar(deuda); setMostrarModalCobro(true); }} className="bg-blue-900 text-white px-3 py-1 rounded text-sm font-bold hover:bg-blue-800 transition-colors">Saldar</button>
+                              <button onClick={() => eliminarIngreso(deuda.id)} className="bg-red-100 text-red-600 px-3 py-1 rounded text-sm font-bold hover:bg-red-200" title="Eliminar registro">❌</button>
+                            </div>
+                          </td>
+                        </tr>
                       ))}
                       {deudasFiltradas.length === 0 && (
                         <tr><td colSpan={4} className="p-4 text-center text-gray-500">No se encontró a nadie con ese nombre en la lista de deudas.</td></tr>
@@ -613,7 +663,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* BOTON DE INCENTIVO POR HABILIDAD */}
               <div className="flex items-center gap-2 bg-yellow-50 hover:bg-yellow-100 p-3 rounded-lg border border-yellow-200 cursor-pointer transition-colors" onClick={() => setEsIncentivo(!esIncentivo)}>
                  <input type="checkbox" id="incentivo" checked={esIncentivo} onChange={(e) => setEsIncentivo(e.target.checked)} className="w-5 h-5 accent-yellow-600 cursor-pointer pointer-events-none" />
                  <label className="text-sm font-bold text-yellow-800 cursor-pointer pointer-events-none">🎁 Dar cortesía hoy (Habilidad Nueva)</label>
