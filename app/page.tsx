@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import Image from "next/image";
 
-// --- COMPONENTES DE ÍCONOS PREMIUM (SVGs) ---
+// --- COMPONENTES DE ÍCONOS PREMIUM (SVGs MODERNOS) ---
 const IconoUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
 const IconoWallet = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>;
 const IconoTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>;
@@ -13,6 +13,10 @@ const IconoAlerta = ({ className = "" }: { className?: string }) => <svg xmlns="
 const IconoSearch = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
 const IconoClose = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 const IconoStar = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
+const IconoTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>;
+const IconoEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>;
+const IconoChevronLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
+const IconoChevronRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
 export default function Home() {
   // --- CONTROL DE PANTALLAS ---
@@ -31,6 +35,25 @@ export default function Home() {
     else { setErrorLogin(true); }
   };
   const cerrarSesion = () => { setPantalla('inicio'); setRolActivo('asistente'); };
+
+  // --- NAVEGACIÓN EN EL TIEMPO (FECHA CAJA DIARIA) ---
+  const getFechaLocal = (d: Date) => {
+    return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  };
+  const [fechaCaja, setFechaCaja] = useState(getFechaLocal(new Date()));
+
+  const cambiarDia = (dias: number) => {
+    const [y, m, d] = fechaCaja.split('-');
+    const date = new Date(Number(y), Number(m)-1, Number(d));
+    date.setDate(date.getDate() + dias);
+    setFechaCaja(getFechaLocal(date));
+  };
+
+  const formatearFechaConDia = (fechaStr: string) => {
+    if (!fechaStr) return '';
+    const d = new Date(fechaStr + 'T00:00:00');
+    return d.toLocaleDateString('es-CO', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   // --- ESTADOS GLOBALES ---
   const [listaEntrenamientos, setListaEntrenamientos] = useState<any[]>([]);
@@ -57,7 +80,7 @@ export default function Home() {
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<any>(null); 
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
-  const [tipo, setTipo] = useState("Gimnasta"); // Por defecto
+  const [tipo, setTipo] = useState("Gimnasta"); 
   const [cantidadAtletas, setCantidadAtletas] = useState(1); 
   const [esIncentivo, setEsIncentivo] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -66,17 +89,20 @@ export default function Home() {
   const [busquedaUsuarioModal, setBusquedaUsuarioModal] = useState("");
   const [mostrarDropdown, setMostrarDropdown] = useState(false);
 
+  // Modal Inscripción / Edición
   const [mostrarModalInscripcion, setMostrarModalInscripcion] = useState(false);
+  const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
+  const [usuarioAEditar, setUsuarioAEditar] = useState<any>(null);
   const [nombreInsc, setNombreInsc] = useState("");
   const [telefonoInsc, setTelefonoInsc] = useState("");
   const [tipoInsc, setTipoInsc] = useState("Gimnasta");
 
-  // Modal de Abonos y Cobros Agrupados
+  // Modal Abonos y Cobros Agrupados
   const [deudorSeleccionado, setDeudorSeleccionado] = useState<any>(null);
   const [montoAbono, setMontoAbono] = useState<number | "">("");
   const [metodoPagoAbono, setMetodoPagoAbono] = useState("Efectivo");
 
-  // --- GESTIÓN DESDE CAJA DIARIA (NUEVO MODAL PRO) ---
+  // Gestión desde Caja
   const [mostrarModalAccionCaja, setMostrarModalAccionCaja] = useState(false);
   const [accionCajaTipo, setAccionCajaTipo] = useState<'pago' | 'nota'>('pago');
   const [notaIngreso, setNotaIngreso] = useState("");
@@ -92,8 +118,6 @@ export default function Home() {
   const mesesDelAno = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const tarifaPorAtletaProfesor = 10000; 
   const tarifaPaquete = 90000; 
-
-  const obtenerFechaHoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
   const procesarFinanzas = (registros: any[], mes: number, anio: number) => {
     let ingMes = 0; let ingSemana = 0; let deuda = 0; let ingAnual = 0;
@@ -172,8 +196,8 @@ export default function Home() {
   const cargarDatos = async () => {
     setCargandoLista(true);
     try {
-      const hoyStr = obtenerFechaHoy(); 
-      const { data: hoyData } = await supabase.from('registro_entrenamientos').select(`id, monto_generado, estado_pago, metodo_pago, cantidad_atletas, fecha_asistencia, usuario_id, usuarios_externos (nombre, telefono, tipo_usuario)`).eq('fecha_asistencia', hoyStr).order('id', { ascending: false });
+      // Se carga la info basada en la "fechaCaja" seleccionada en la navegación temporal
+      const { data: hoyData } = await supabase.from('registro_entrenamientos').select(`id, monto_generado, estado_pago, metodo_pago, cantidad_atletas, fecha_asistencia, usuario_id, usuarios_externos (nombre, telefono, tipo_usuario)`).eq('fecha_asistencia', fechaCaja).order('id', { ascending: false });
       setListaEntrenamientos(hoyData || []);
 
       const { data: clientes } = await supabase.from('usuarios_externos').select('*').order('nombre', { ascending: true });
@@ -188,7 +212,8 @@ export default function Home() {
     finally { setCargandoLista(false); }
   };
 
-  useEffect(() => { if (pantalla === 'app') cargarDatos(); }, [pantalla, mesConsulta, anioConsulta]);
+  // Se recarga cada vez que cambiamos de pestaña o nos movemos en el tiempo (fechaCaja)
+  useEffect(() => { if (pantalla === 'app') cargarDatos(); }, [pantalla, mesConsulta, anioConsulta, fechaCaja]);
 
   const guardarIngreso = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,8 +253,9 @@ export default function Home() {
         estado = "Pendiente";
       }
 
+      // Se asigna la fecha en la que estamos navegando (fechaCaja)
       const { error: eR } = await supabase.from("registro_entrenamientos").insert([{ 
-        usuario_id: usuarioId, cantidad_atletas: cant, monto_generado: monto, estado_pago: estado, metodo_pago: metodo, fecha_asistencia: obtenerFechaHoy() 
+        usuario_id: usuarioId, cantidad_atletas: cant, monto_generado: monto, estado_pago: estado, metodo_pago: metodo, fecha_asistencia: fechaCaja 
       }]);
       if (eR) throw eR;
 
@@ -269,7 +295,7 @@ export default function Home() {
     if (!window.confirm("¿Confirmar venta de paquete de 12 clases por $90.000? (Se registrará como pagado hoy)")) return;
     try {
       const { error } = await supabase.from("registro_entrenamientos").insert([{ 
-        usuario_id: uid, cantidad_atletas: 0, monto_generado: tarifaPaquete, estado_pago: 'Pagado', metodo_pago: 'Compra Paquete (12)', fecha_asistencia: obtenerFechaHoy() 
+        usuario_id: uid, cantidad_atletas: 0, monto_generado: tarifaPaquete, estado_pago: 'Pagado', metodo_pago: 'Compra Paquete (12)', fecha_asistencia: getFechaLocal(new Date()) 
       }]);
       if (error) throw error;
       cargarDatos();
@@ -292,7 +318,7 @@ export default function Home() {
           const restante = deuda.monto_generado - abono;
           await supabase.from('registro_entrenamientos').update({ monto_generado: restante }).eq('id', deuda.id);
           await supabase.from('registro_entrenamientos').insert([{
-            usuario_id: deuda.usuario_id, cantidad_atletas: 0, monto_generado: abono, estado_pago: 'Pagado', metodo_pago: `Abono Parcial (${metodoPagoAbono})`, fecha_asistencia: obtenerFechaHoy()
+            usuario_id: deuda.usuario_id, cantidad_atletas: 0, monto_generado: abono, estado_pago: 'Pagado', metodo_pago: `Abono Parcial (${metodoPagoAbono})`, fecha_asistencia: getFechaLocal(new Date())
           }]);
           abono = 0;
         }
@@ -313,6 +339,27 @@ export default function Home() {
       cargarDatos();
     } catch (error) { alert("Error: " + (error as Error).message); } 
     finally { setCargando(false); }
+  };
+
+  const editarUsuarioInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuarioAEditar) return;
+    setCargando(true);
+    try {
+      const { error } = await supabase.from("usuarios_externos").update({ nombre: nombreInsc, telefono: telefonoInsc, tipo_usuario: tipoInsc }).eq('id', usuarioAEditar.id);
+      if (error) throw error;
+      setNombreInsc(""); setTelefonoInsc(""); setMostrarModalEdicion(false); setUsuarioAEditar(null);
+      cargarDatos();
+    } catch (error) { alert("Error al editar: " + (error as Error).message); } 
+    finally { setCargando(false); }
+  };
+
+  const abrirModalEditar = (u: any) => {
+    setUsuarioAEditar(u);
+    setNombreInsc(u.nombre);
+    setTelefonoInsc(u.telefono || "");
+    setTipoInsc(u.tipo_usuario);
+    setMostrarModalEdicion(true);
   };
 
   const eliminarUsuario = async (id: string, nombre: string) => {
@@ -361,6 +408,7 @@ export default function Home() {
     return usuariosDB.filter(u => u.nombre.toLowerCase().includes(busquedaUsuarioModal.toLowerCase()));
   }, [busquedaUsuarioModal, usuariosDB]);
 
+  // --- RENDERING PRINCIPAL ---
   if (pantalla === 'inicio') {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4 selection:bg-blue-200">
@@ -392,14 +440,14 @@ export default function Home() {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-12 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] max-w-sm w-full text-center border border-gray-100 relative">
-          <button onClick={() => setPantalla('inicio')} className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 font-medium transition-colors">← Atrás</button>
+          <button onClick={() => setPantalla('inicio')} className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 font-medium transition-colors outline-none">← Atrás</button>
           <div className="flex justify-center mb-6 mt-4"><div className="bg-blue-50 text-blue-600 p-4 rounded-3xl"><IconoWallet /></div></div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Seguro</h2>
           <p className="text-gray-400 text-sm mb-8">Ingresa tu PIN de administrador</p>
           <form onSubmit={iniciarSesionAdmin}>
             <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-center text-3xl tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white mb-6 text-gray-800 transition-all outline-none" placeholder="••••" />
             {errorLogin && <p className="text-red-500 font-medium mb-6 text-sm bg-red-50 py-2 rounded-xl">PIN incorrecto</p>}
-            <button type="submit" className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-4 rounded-2xl shadow-md transition-all">Verificar</button>
+            <button type="submit" className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-4 rounded-2xl shadow-md transition-all outline-none">Verificar</button>
           </form>
         </div>
       </main>
@@ -421,11 +469,11 @@ export default function Home() {
           </div>
           <nav className="flex items-center gap-2 overflow-x-auto w-full md:w-auto hide-scrollbar">
             <div className="flex bg-gray-100 rounded-2xl p-1 border border-gray-200">
-              <button onClick={() => setVistaActiva('caja')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${vistaActiva === 'caja' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Caja Diaria</button>
+              <button onClick={() => setVistaActiva('caja')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'caja' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Caja Diaria</button>
               {rolActivo === 'admin' && (
                 <>
-                  <button onClick={() => setVistaActiva('finanzas')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${vistaActiva === 'finanzas' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Finanzas</button>
-                  <button onClick={() => setVistaActiva('basedatos')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${vistaActiva === 'basedatos' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Directorio</button>
+                  <button onClick={() => setVistaActiva('finanzas')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'finanzas' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Finanzas</button>
+                  <button onClick={() => setVistaActiva('basedatos')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'basedatos' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Directorio</button>
                 </>
               )}
             </div>
@@ -440,11 +488,17 @@ export default function Home() {
         <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
           
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-8">
-             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-               <div>
-                  <h2 className="text-2xl font-black text-gray-800 tracking-tight">Caja de Hoy</h2>
-                  <span className="text-gray-400 font-medium capitalize mt-1 block">{new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-gray-50 pb-6">
+               <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                  <button onClick={() => cambiarDia(-1)} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors"><IconoChevronLeft /></button>
+                  <div className="text-center px-4 min-w-[160px]">
+                    <h2 className="text-xl font-black text-gray-800 tracking-tight capitalize">
+                      {fechaCaja === getFechaLocal(new Date()) ? "Caja de Hoy" : new Date(fechaCaja + 'T00:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </h2>
+                  </div>
+                  <button onClick={() => cambiarDia(1)} disabled={fechaCaja === getFechaLocal(new Date())} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-30 disabled:hover:text-gray-500"><IconoChevronRight /></button>
                </div>
+               
                <button onClick={() => {setMostrarModal(true); setEsIncentivo(false); setIngresoExitoso(false);}} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
                   Nueva Entrada +
                </button>
@@ -452,7 +506,7 @@ export default function Home() {
              
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Entradas Hoy</p>
+                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Entradas Registradas</p>
                   <p className="text-3xl font-black text-blue-950">{totalPersonasHoy}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -472,12 +526,12 @@ export default function Home() {
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
             <div className="flex bg-gray-200/50 p-1.5 rounded-2xl w-full md:w-auto">
-               <button onClick={() => setFiltroCaja('pendientes')} className={`flex-1 md:px-8 py-2.5 rounded-xl font-bold text-sm transition-all ${filtroCaja === 'pendientes' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Falta cobrar</button>
-               <button onClick={() => setFiltroCaja('pagados')} className={`flex-1 md:px-8 py-2.5 rounded-xl font-bold text-sm transition-all ${filtroCaja === 'pagados' ? 'bg-white text-green-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Ya pagaron</button>
+               <button onClick={() => setFiltroCaja('pendientes')} className={`flex-1 md:px-8 py-2.5 rounded-xl font-bold text-sm transition-all outline-none ${filtroCaja === 'pendientes' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Falta cobrar</button>
+               <button onClick={() => setFiltroCaja('pagados')} className={`flex-1 md:px-8 py-2.5 rounded-xl font-bold text-sm transition-all outline-none ${filtroCaja === 'pagados' ? 'bg-white text-green-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Ya pagaron</button>
             </div>
             <div className="relative w-full md:w-80">
                <span className="absolute left-4 top-3.5 text-gray-400"><IconoSearch /></span>
-               <input type="text" placeholder="Buscar entrada hoy..." value={busquedaCaja} onChange={(e) => setBusquedaCaja(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 focus:border-blue-500 focus:outline-none text-gray-800 bg-white" />
+               <input type="text" placeholder="Buscar entrada..." value={busquedaCaja} onChange={(e) => setBusquedaCaja(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 focus:border-blue-500 focus:outline-none text-gray-800 bg-white" />
             </div>
           </div>
 
@@ -488,8 +542,11 @@ export default function Home() {
               {entrenamientosFiltrados.map((item, i) => (
                 <div key={i} onClick={() => { if(item.estado_pago === 'Pendiente') { setEntrenamientoACobrar(item); setAccionCajaTipo('pago'); setMostrarModalAccionCaja(true); } }} className={`bg-white rounded-[24px] shadow-sm border overflow-hidden flex flex-col relative transition-all ${item.estado_pago === 'Pendiente' ? 'border-gray-200 hover:border-blue-300 cursor-pointer hover:shadow-md' : 'border-gray-100'}`}>
                   <div className={`px-5 py-4 font-bold flex justify-between items-center border-b border-gray-50 ${item.estado_pago === 'Pendiente' ? 'bg-red-50/50' : 'bg-green-50/50'}`}>
-                    <span className="truncate text-gray-800 text-lg">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
-                    {item.estado_pago === 'Pagado' && <button onClick={(e) => { e.stopPropagation(); reversarPago(item.id); }} className="text-gray-300 hover:text-red-500" title="Anular Pago"><IconoClose /></button>}
+                    <span className="truncate text-gray-800 text-lg pr-2">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
+                    <div className="flex gap-1">
+                      {item.estado_pago === 'Pagado' && <button onClick={(e) => { e.stopPropagation(); reversarPago(item.id); }} className="text-gray-300 hover:text-yellow-600 outline-none" title="Anular Pago"><IconoClose /></button>}
+                      <button onClick={(e) => { e.stopPropagation(); eliminarIngreso(item.id); }} className="text-gray-300 hover:text-red-500 outline-none" title="Eliminar Entrada"><IconoTrash /></button>
+                    </div>
                   </div>
                   <div className="p-5 flex-grow text-gray-600">
                     <p className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-lg inline-block text-gray-500 mb-2 uppercase tracking-widest">{item.usuarios_externos?.tipo_usuario}</p>
@@ -506,7 +563,7 @@ export default function Home() {
               ))}
               {entrenamientosFiltrados.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center text-gray-400 py-16 bg-white rounded-[2rem] shadow-sm border border-gray-100">
-                  <p className="text-lg font-medium">{busquedaCaja ? "Sin resultados" : (filtroCaja === 'pendientes' ? "¡Caja limpia! Todos han pagado." : "Aún no hay cobros hoy.")}</p>
+                  <p className="text-lg font-medium">{busquedaCaja ? "Sin resultados" : (filtroCaja === 'pendientes' ? "Todos han pagado (o no hay deudores)." : "Aún no hay cobros registrados.")}</p>
                 </div>
               )}
             </div>
@@ -529,7 +586,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 relative">
             <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-lg col-span-2 md:col-span-1 flex flex-col justify-center">
               <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Semana Actual</p>
               <p className="text-3xl font-black">${finanzas.semanal.toLocaleString('es-CO')}</p>
@@ -540,13 +597,22 @@ export default function Home() {
               <p className="text-3xl font-black text-gray-800">${finanzas.mensual.toLocaleString('es-CO')}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-center col-span-2 md:col-span-1 text-center">
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-center items-center col-span-2 md:col-span-1 relative z-30">
               <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Recaudo Anual</p>
-              {mostrarAnual ? (
-                <p className="text-2xl font-black text-blue-600 animate-fade-in">${finanzas.anual.toLocaleString('es-CO')}</p>
-              ) : (
-                <button onClick={() => setMostrarAnual(true)} className="bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-bold py-2 px-4 rounded-xl transition-colors mx-auto w-fit">Ver Resumen</button>
-              )}
+              <div className="relative inline-block">
+                <button onClick={() => setMostrarAnual(!mostrarAnual)} className="bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-bold py-2 px-4 rounded-xl transition-colors outline-none">
+                  {mostrarAnual ? 'Ocultar Resumen' : 'Ver Resumen'}
+                </button>
+
+                {mostrarAnual && (
+                  <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-6 rounded-[2rem] shadow-2xl z-50 min-w-[260px] animate-in fade-in zoom-in duration-300">
+                    <button onClick={() => setMostrarAnual(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white outline-none"><IconoClose/></button>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1 text-left">Total 2026</p>
+                    <p className="text-4xl font-black text-blue-400 text-left">${finanzas.anual.toLocaleString('es-CO')}</p>
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 rotate-45"></div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -592,13 +658,15 @@ export default function Home() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {deudoresFiltrados.map((d, i) => (
-                    <div key={i} onClick={() => setDeudorSeleccionado(d)} className="bg-white border border-gray-100 hover:border-red-200 shadow-sm hover:shadow-md transition-all rounded-3xl p-5 cursor-pointer">
-                       <div className="flex justify-between items-start mb-4">
-                         <h4 className="font-bold text-gray-800 leading-tight pr-2">{d.nombre}</h4>
-                         <span className="bg-red-50 text-red-500 font-bold text-xs px-2 py-1 rounded-lg">{d.registros.length} clases</span>
+                    <div key={i} onClick={() => setDeudorSeleccionado(d)} className="bg-white border border-gray-100 hover:border-red-200 shadow-sm hover:shadow-md transition-all rounded-3xl p-5 cursor-pointer flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-between items-start mb-4">
+                           <h4 className="font-bold text-gray-800 leading-tight pr-2">{d.nombre}</h4>
+                           <span className="bg-red-50 text-red-500 font-bold text-xs px-2 py-1 rounded-lg">{d.registros.length} clases</span>
+                         </div>
+                         <p className="text-3xl font-black text-red-500 mb-4">${d.montoTotal.toLocaleString('es-CO')}</p>
                        </div>
-                       <p className="text-3xl font-black text-red-500 mb-4">${d.montoTotal.toLocaleString('es-CO')}</p>
-                       <button className="w-full bg-red-50 text-red-600 font-bold py-2 rounded-xl text-sm transition-colors hover:bg-red-100">Cobrar / Abonar</button>
+                       <button className="w-full bg-red-50 text-red-600 font-bold py-2 rounded-xl text-sm transition-colors hover:bg-red-100 outline-none">Saldar Deuda</button>
                     </div>
                   ))}
                 </div>
@@ -635,8 +703,8 @@ export default function Home() {
       {vistaActiva === 'basedatos' && rolActivo === 'admin' && (
         <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-gray-200 pb-4 gap-4">
-            <div><h2 className="text-3xl font-black text-gray-800 tracking-tight">Directorio</h2></div>
-            <button onClick={() => setMostrarModalInscripcion(true)} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center">+ Inscribir Cliente</button>
+            <div><h2 className="text-3xl font-black text-gray-800 tracking-tight">Directorio de Atletas</h2></div>
+            <button onClick={() => setMostrarModalInscripcion(true)} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none">+ Inscribir Cliente</button>
           </div>
           <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
@@ -649,13 +717,18 @@ export default function Home() {
                     const clasesLeft = clasesRestantesPaquete[u.id] || 0;
                     return (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-5"><p className="font-bold text-gray-800">{u.nombre}</p><p className="text-xs text-gray-400 font-medium mt-1 uppercase tracking-wider">{u.telefono || 'Sin contacto'} • {u.tipo_usuario}</p></td>
+                        <td className="p-5"><p className="font-bold text-gray-800">{u.nombre}</p><p className="text-[11px] text-gray-400 font-bold mt-1 uppercase tracking-wider">{u.telefono || 'Sin contacto'} • {u.tipo_usuario}</p></td>
                         <td className="p-5 text-center">
                           {u.tipo_usuario !== 'Profesor' ? (
-                            clasesLeft > 0 ? <span className="bg-green-100 text-green-700 font-black px-3 py-1.5 rounded-xl">{clasesLeft} Clases</span> : <button onClick={() => venderPaquete(u.id)} className="bg-gray-100 hover:bg-green-50 text-gray-500 hover:text-green-600 font-bold px-4 py-2 rounded-xl text-xs transition-colors border border-gray-200">Vender Paquete</button>
+                            clasesLeft > 0 ? <span className="bg-green-100 text-green-700 font-black px-3 py-1.5 rounded-xl">{clasesLeft} Clases</span> : <button onClick={() => venderPaquete(u.id)} className="bg-gray-100 hover:bg-green-50 text-gray-500 hover:text-green-600 font-bold px-4 py-2 rounded-xl text-xs transition-colors border border-gray-200 outline-none">Vender Paquete</button>
                           ) : <span className="text-gray-300 text-xs font-bold">No Aplica</span>}
                         </td>
-                        <td className="p-5 text-right"><button onClick={() => eliminarUsuario(u.id, u.nombre)} className="text-gray-300 hover:text-red-500 font-bold p-2 rounded-lg hover:bg-red-50 transition-colors"><IconoClose /></button></td>
+                        <td className="p-5 text-right">
+                          <div className="flex justify-end gap-2">
+                             <button onClick={() => abrirModalEditar(u)} className="text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 p-2 rounded-xl transition-colors outline-none"><IconoEdit /></button>
+                             <button onClick={() => eliminarUsuario(u.id, u.nombre)} className="text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 p-2 rounded-xl transition-colors outline-none"><IconoTrash /></button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -666,7 +739,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- MODAL ASISTENCIA (SIN NOTAS / REGISTRO EXPRESS) --- */}
+      {/* --- MODAL ASISTENCIA EXPRESS --- */}
       {mostrarModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative overflow-visible">
@@ -753,7 +826,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- NUEVO MODAL GESTIÓN DE COBRO PRO (CAJA DIARIA) --- */}
+      {/* --- MODAL GESTIÓN DE COBRO PRO (CAJA DIARIA) --- */}
       {mostrarModalAccionCaja && entrenamientoACobrar && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden">
@@ -795,24 +868,34 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- MODAL INTELIGENTE: PAGO TOTAL / ABONO AGRUPADO (FINANZAS) --- */}
+      {/* --- MODAL INTELIGENTE: PAGO TOTAL / ABONO AGRUPADO CON HISTORIAL --- */}
       {deudorSeleccionado && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button type="button" onClick={() => {setDeudorSeleccionado(null); setMontoAbono("");}} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4"><IconoWallet /></div>
             <h3 className="text-xl font-bold text-gray-800 leading-tight mb-1">{deudorSeleccionado.nombre}</h3>
-            <p className="text-xs font-bold text-red-400 uppercase tracking-wider mb-4">Deuda Acumulada Activa</p>
+            <p className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2">Deuda Acumulada Activa</p>
             <p className="text-5xl font-black text-red-500 mb-6 tracking-tighter">${deudorSeleccionado.montoTotal.toLocaleString('es-CO')}</p>
             
+            <div className="mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto custom-scrollbar">
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Historial de Clases Sin Pagar</p>
+               {deudorSeleccionado.registros.map((reg: any) => (
+                  <div key={reg.id} className="flex justify-between items-center text-sm py-2 border-b border-gray-200 last:border-0">
+                     <span className="font-bold text-gray-600 capitalize">{formatearFechaConDia(reg.fecha_asistencia)}</span>
+                     <span className="font-black text-red-500">${reg.monto_generado.toLocaleString()}</span>
+                  </div>
+               ))}
+            </div>
+
             <form onSubmit={procesarAbonoTotal}>
-              <div className="bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-100">
+              <div className="bg-white p-4 rounded-2xl mb-6 border border-gray-200">
                 <label className="block text-gray-500 font-bold mb-3 text-xs uppercase tracking-widest">¿Cuánto va a pagar?</label>
                 <div className="flex gap-2 mb-3">
                   <button type="button" onClick={() => setMontoAbono(deudorSeleccionado.montoTotal)} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 font-bold py-2 rounded-xl text-xs transition-colors shadow-sm outline-none">Pagar Total</button>
                   <button type="button" onClick={() => setMontoAbono("")} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-500 font-bold py-2 rounded-xl text-xs transition-colors shadow-sm outline-none">Otro monto</button>
                 </div>
-                <input type="number" min="1" max={deudorSeleccionado.montoTotal} required value={montoAbono} onChange={(e) => setMontoAbono(Number(e.target.value))} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-red-200 text-lg" placeholder="Ej: 15000" />
+                <input type="number" min="1" max={deudorSeleccionado.montoTotal} required value={montoAbono} onChange={(e) => setMontoAbono(Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-red-200 text-lg" placeholder="Ej: 15000" />
               </div>
 
               <div className="mb-6">
@@ -830,14 +913,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- MODAL INSCRIPCION (BASE DE DATOS) --- */}
-      {mostrarModalInscripcion && (
+      {/* --- MODAL INSCRIPCION / EDICION (BASE DE DATOS) --- */}
+      {(mostrarModalInscripcion || mostrarModalEdicion) && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
-            <button type="button" onClick={() => setMostrarModalInscripcion(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
-            <h3 className="text-2xl font-black text-gray-800 mb-2">Crear Ficha</h3>
-            <p className="text-gray-400 text-sm mb-6 font-medium">Agregar a la base de datos sin cobrar.</p>
-            <form onSubmit={inscribirUsuario} className="space-y-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-300">
+            <button type="button" onClick={() => {setMostrarModalInscripcion(false); setMostrarModalEdicion(false); setUsuarioAEditar(null);}} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
+            <h3 className="text-2xl font-black text-gray-800 mb-2">{mostrarModalEdicion ? "Editar Atleta" : "Crear Ficha"}</h3>
+            <p className="text-gray-400 text-sm mb-6 font-medium">{mostrarModalEdicion ? "Modifica los datos del directorio." : "Agregar a la base de datos sin cobrar."}</p>
+            
+            <form onSubmit={mostrarModalEdicion ? editarUsuarioInfo : inscribirUsuario} className="space-y-4">
               <input type="text" required value={nombreInsc} onChange={(e) => setNombreInsc(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-medium outline-none focus:ring-2 focus:ring-blue-100" placeholder="Nombre completo" />
               <input type="text" value={telefonoInsc} onChange={(e) => setTelefonoInsc(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-medium outline-none focus:ring-2 focus:ring-blue-100" placeholder="Número de contacto" />
               <select value={tipoInsc} onChange={(e) => setTipoInsc(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-bold outline-none focus:ring-2 focus:ring-blue-100">
@@ -847,7 +931,9 @@ export default function Home() {
                 <option value="Acróbata">Acróbata</option>
                 <option value="Profesor">Profesor Externo</option>
               </select>
-              <button type="submit" disabled={cargando} className="w-full bg-blue-950 text-white font-bold py-4 rounded-2xl mt-4 shadow-md outline-none">Guardar Ficha</button>
+              <button type="submit" disabled={cargando} className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-4 rounded-2xl mt-4 shadow-md outline-none transition-colors">
+                {cargando ? "Guardando..." : "Guardar Ficha"}
+              </button>
             </form>
           </div>
         </div>
