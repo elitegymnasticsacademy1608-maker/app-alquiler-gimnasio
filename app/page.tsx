@@ -28,21 +28,40 @@ export default function Home() {
   const [errorLogin, setErrorLogin] = useState(false);
   const CLAVE_ADMIN = "elite2026";
 
-  const entrarComoAsistente = () => { setRolActivo('asistente'); setVistaActiva('caja'); setPantalla('app'); };
-  const iniciarSesionAdmin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (clave === CLAVE_ADMIN) { setRolActivo('admin'); setVistaActiva('caja'); setPantalla('app'); setErrorLogin(false); setClave(""); } 
-    else { setErrorLogin(true); }
-  };
-  const cerrarSesion = () => { setPantalla('inicio'); setRolActivo('asistente'); };
-
-  // --- NAVEGACIÓN EN EL TIEMPO (FECHA CAJA DIARIA) ---
   const getFechaLocal = (d: Date) => {
     return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
   };
   const [fechaCaja, setFechaCaja] = useState(getFechaLocal(new Date()));
 
+  const entrarComoAsistente = () => { 
+    setRolActivo('asistente'); 
+    setVistaActiva('caja'); 
+    setPantalla('app'); 
+    setFechaCaja(getFechaLocal(new Date())); // Forzar a HOY por seguridad
+  };
+  
+  const iniciarSesionAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (clave === CLAVE_ADMIN) { 
+      setRolActivo('admin'); 
+      setVistaActiva('caja'); 
+      setPantalla('app'); 
+      setErrorLogin(false); 
+      setClave(""); 
+    } else { 
+      setErrorLogin(true); 
+    }
+  };
+  
+  const cerrarSesion = () => { 
+    setPantalla('inicio'); 
+    setRolActivo('asistente'); 
+    setFechaCaja(getFechaLocal(new Date())); // Resetear fecha al salir
+  };
+
+  // --- NAVEGACIÓN EN EL TIEMPO (SOLO ADMIN) ---
   const cambiarDia = (dias: number) => {
+    if (rolActivo !== 'admin') return; // Candado adicional
     const [y, m, d] = fechaCaja.split('-');
     const date = new Date(Number(y), Number(m)-1, Number(d));
     date.setDate(date.getDate() + dias);
@@ -196,7 +215,6 @@ export default function Home() {
   const cargarDatos = async () => {
     setCargandoLista(true);
     try {
-      // Se carga la info basada en la "fechaCaja" seleccionada en la navegación temporal
       const { data: hoyData } = await supabase.from('registro_entrenamientos').select(`id, monto_generado, estado_pago, metodo_pago, cantidad_atletas, fecha_asistencia, usuario_id, usuarios_externos (nombre, telefono, tipo_usuario)`).eq('fecha_asistencia', fechaCaja).order('id', { ascending: false });
       setListaEntrenamientos(hoyData || []);
 
@@ -212,7 +230,6 @@ export default function Home() {
     finally { setCargandoLista(false); }
   };
 
-  // Se recarga cada vez que cambiamos de pestaña o nos movemos en el tiempo (fechaCaja)
   useEffect(() => { if (pantalla === 'app') cargarDatos(); }, [pantalla, mesConsulta, anioConsulta, fechaCaja]);
 
   const guardarIngreso = async (e: React.FormEvent) => {
@@ -253,7 +270,6 @@ export default function Home() {
         estado = "Pendiente";
       }
 
-      // Se asigna la fecha en la que estamos navegando (fechaCaja)
       const { error: eR } = await supabase.from("registro_entrenamientos").insert([{ 
         usuario_id: usuarioId, cantidad_atletas: cant, monto_generado: monto, estado_pago: estado, metodo_pago: metodo, fecha_asistencia: fechaCaja 
       }]);
@@ -393,7 +409,6 @@ export default function Home() {
   const totalEsperadoHoy = listaEntrenamientos.reduce((suma, item) => suma + Number(item.monto_generado), 0);
   const totalRecaudadoHoy = listaEntrenamientos.filter(i => i.estado_pago === 'Pagado').reduce((suma, item) => suma + Number(item.monto_generado), 0);
   const totalFaltanteHoy = totalEsperadoHoy - totalRecaudadoHoy;
-  const porcentajeRecaudo = totalEsperadoHoy === 0 ? 0 : Math.round((totalRecaudadoHoy / totalEsperadoHoy) * 100);
 
   const entrenamientosFiltrados = listaEntrenamientos.filter(item => {
     const cumpleEstado = filtroCaja === 'pendientes' ? item.estado_pago === 'Pendiente' : item.estado_pago === 'Pagado';
@@ -490,13 +505,17 @@ export default function Home() {
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-8">
              <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-gray-50 pb-6">
                <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border border-gray-100">
-                  <button onClick={() => cambiarDia(-1)} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors"><IconoChevronLeft /></button>
+                  {rolActivo === 'admin' && (
+                    <button onClick={() => cambiarDia(-1)} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors"><IconoChevronLeft /></button>
+                  )}
                   <div className="text-center px-4 min-w-[160px]">
                     <h2 className="text-xl font-black text-gray-800 tracking-tight capitalize">
                       {fechaCaja === getFechaLocal(new Date()) ? "Caja de Hoy" : new Date(fechaCaja + 'T00:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </h2>
                   </div>
-                  <button onClick={() => cambiarDia(1)} disabled={fechaCaja === getFechaLocal(new Date())} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-30 disabled:hover:text-gray-500"><IconoChevronRight /></button>
+                  {rolActivo === 'admin' && (
+                    <button onClick={() => cambiarDia(1)} disabled={fechaCaja === getFechaLocal(new Date())} className="p-2 bg-white rounded-xl shadow-sm text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-30 disabled:hover:text-gray-500"><IconoChevronRight /></button>
+                  )}
                </div>
                
                <button onClick={() => {setMostrarModal(true); setEsIncentivo(false); setIngresoExitoso(false);}} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
