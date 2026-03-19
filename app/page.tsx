@@ -126,6 +126,7 @@ export default function Home() {
   const [accionCajaTipo, setAccionCajaTipo] = useState<'pago' | 'nota'>('pago');
   const [notaIngreso, setNotaIngreso] = useState("");
   const [entrenamientoACobrar, setEntrenamientoACobrar] = useState<any>(null);
+  const [montoAbonoCaja, setMontoAbonoCaja] = useState<number | "">(""); 
 
   // Filtros
   const [filtroCaja, setFiltroCaja] = useState('pendientes');
@@ -292,16 +293,40 @@ export default function Home() {
     if (!entrenamientoACobrar) return;
     setCargando(true);
     try {
-      const updateData = accionCajaTipo === 'pago' 
-        ? { estado_pago: 'Pagado', metodo_pago: metodoPagoAbono }
-        : { metodo_pago: `Nota: ${notaIngreso}` };
-
-      const { error } = await supabase.from('registro_entrenamientos').update(updateData).eq('id', entrenamientoACobrar.id);
-      if (error) throw error;
+      if (accionCajaTipo === 'nota') {
+         const { error } = await supabase.from('registro_entrenamientos').update({ metodo_pago: `Nota: ${notaIngreso}` }).eq('id', entrenamientoACobrar.id);
+         if (error) throw error;
+      } else {
+         const deudorCaja = listaDeudoresAgrupados.find(d => d.usuario_id === entrenamientoACobrar.usuario_id);
+         const registrosOrdenados = deudorCaja ? [...deudorCaja.registros].sort((a: any, b: any) => new Date(a.fecha_asistencia).getTime() - new Date(b.fecha_asistencia).getTime()) : [entrenamientoACobrar];
+         
+         let abono = Number(montoAbonoCaja);
+         
+         if (abono === entrenamientoACobrar.monto_generado) {
+             await supabase.from('registro_entrenamientos').update({ estado_pago: 'Pagado', metodo_pago: metodoPagoAbono }).eq('id', entrenamientoACobrar.id);
+         } else {
+             for (const deuda of registrosOrdenados) {
+                if (abono <= 0) break;
+                if (abono >= deuda.monto_generado) {
+                  await supabase.from('registro_entrenamientos').update({ estado_pago: 'Pagado', metodo_pago: metodoPagoAbono }).eq('id', deuda.id);
+                  abono -= deuda.monto_generado;
+                } else {
+                  const restante = deuda.monto_generado - abono;
+                  await supabase.from('registro_entrenamientos').update({ monto_generado: restante }).eq('id', deuda.id);
+                  await supabase.from('registro_entrenamientos').insert([{
+                    usuario_id: deuda.usuario_id, cantidad_atletas: 0, 
+                    monto_generado: abono, estado_pago: 'Pagado', metodo_pago: `Abono Parcial (${metodoPagoAbono})`, fecha_asistencia: getFechaLocal(new Date())
+                  }]);
+                  abono = 0;
+                }
+             }
+         }
+      }
       
       setMostrarModalAccionCaja(false);
       setNotaIngreso("");
       setEntrenamientoACobrar(null);
+      setMontoAbonoCaja("");
       cargarDatos();
     } catch (error) { alert("Error al actualizar: " + (error as Error).message); }
     finally { setCargando(false); }
@@ -519,7 +544,7 @@ export default function Home() {
                </div>
                
                <button onClick={() => {setMostrarModal(true); setEsIncentivo(false); setIngresoExitoso(false);}} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
-                  Nueva Entrada +
+                 Nueva Entrada +
                </button>
              </div>
              
@@ -559,7 +584,14 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
               {entrenamientosFiltrados.map((item, i) => (
-                <div key={i} onClick={() => { if(item.estado_pago === 'Pendiente') { setEntrenamientoACobrar(item); setAccionCajaTipo('pago'); setMostrarModalAccionCaja(true); } }} className={`bg-white rounded-[24px] shadow-sm border overflow-hidden flex flex-col relative transition-all ${item.estado_pago === 'Pendiente' ? 'border-gray-200 hover:border-blue-300 cursor-pointer hover:shadow-md' : 'border-gray-100'}`}>
+                <div key={i} onClick={() => { 
+                    if(item.estado_pago === 'Pendiente') { 
+                        setEntrenamientoACobrar(item); 
+                        setAccionCajaTipo('pago'); 
+                        setMontoAbonoCaja(item.monto_generado); 
+                        setMostrarModalAccionCaja(true); 
+                    } 
+                }} className={`bg-white rounded-[24px] shadow-sm border overflow-hidden flex flex-col relative transition-all ${item.estado_pago === 'Pendiente' ? 'border-gray-200 hover:border-blue-300 cursor-pointer hover:shadow-md' : 'border-gray-100'}`}>
                   <div className={`px-5 py-4 font-bold flex justify-between items-center border-b border-gray-50 ${item.estado_pago === 'Pendiente' ? 'bg-red-50/50' : 'bg-green-50/50'}`}>
                     <span className="truncate text-gray-800 text-lg pr-2">{item.usuarios_externos?.nombre || 'Desconocido'}</span>
                     <div className="flex gap-1">
@@ -719,6 +751,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* --- AQUÍ ESTÁ EL BLOQUE RESTAURADO: DIRECTORIO DE ATLETAS --- */}
       {vistaActiva === 'basedatos' && rolActivo === 'admin' && (
         <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-gray-200 pb-4 gap-4">
@@ -801,6 +834,7 @@ export default function Home() {
                       })}
                     </div>
                   )}
+
                 </div>
               ) : (
                 <div className="space-y-4 animate-fade-in">
@@ -837,7 +871,7 @@ export default function Home() {
 
               <div className="pt-2">
                 <button type="submit" disabled={cargando || (!esNuevo && !usuarioSeleccionado)} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-black py-4 rounded-2xl transition-all shadow-md text-lg outline-none">
-                  {cargando ? "Registrando..." : "Guardar Entrada"}
+                  {cargando ? "Registrando..." : "Guardar Entrada Hoy"}
                 </button>
               </div>
             </form>
@@ -845,52 +879,111 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- MODAL GESTIÓN DE COBRO PRO (CAJA DIARIA) --- */}
-      {mostrarModalAccionCaja && entrenamientoACobrar && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden">
-             <button onClick={() => {setMostrarModalAccionCaja(false); setNotaIngreso("");}} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
-             
-             <div className="mb-6">
-               <h3 className="text-2xl font-black text-gray-800 truncate pr-6">{entrenamientoACobrar.usuarios_externos?.nombre}</h3>
-               <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Gestionar Entrada Hoy</p>
-             </div>
+      {/* --- MODAL GESTIÓN DE COBRO PRO (CAJA DIARIA) RE-DISEÑADO --- */}
+      {mostrarModalAccionCaja && entrenamientoACobrar && (() => {
+         const deudorCaja = listaDeudoresAgrupados.find(d => d.usuario_id === entrenamientoACobrar.usuario_id);
+         const registrosAnteriores = deudorCaja ? deudorCaja.registros.filter((r: any) => r.id !== entrenamientoACobrar.id) : [];
+         const deudaAnterior = registrosAnteriores.reduce((sum: number, r: any) => sum + r.monto_generado, 0);
+         const montoHoy = entrenamientoACobrar.monto_generado;
+         const montoTotalPagar = montoHoy + deudaAnterior;
 
-             <div className="flex bg-gray-100 p-1 rounded-2xl mb-6">
-                <button onClick={() => setAccionCajaTipo('pago')} className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all outline-none ${accionCajaTipo === 'pago' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Registrar Pago</button>
-                <button onClick={() => setAccionCajaTipo('nota')} className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all outline-none ${accionCajaTipo === 'nota' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500'}`}>Dejar Pendiente</button>
-             </div>
+         return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+              <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar">
+                 <button onClick={() => {setMostrarModalAccionCaja(false); setNotaIngreso("");}} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
+                 
+                 <div className="mb-4 pr-6">
+                   <h3 className="text-2xl font-black text-gray-800 truncate">{entrenamientoACobrar.usuarios_externos?.nombre}</h3>
+                   <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Gestionar Entrada Hoy</p>
+                 </div>
 
-             {accionCajaTipo === 'pago' ? (
-                <div className="animate-fade-in">
-                  <label className="block text-gray-500 font-bold mb-2 text-xs uppercase tracking-widest ml-1">Medio de Pago</label>
-                  <select value={metodoPagoAbono} onChange={e => setMetodoPagoAbono(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-bold mb-6 outline-none focus:border-green-200">
-                    <option value="Efectivo">💵 Efectivo</option>
-                    <option value="Nequi">📱 Nequi</option>
-                    <option value="Bancolombia">🏦 Bancolombia</option>
-                    <option value="Daviplata">🔴 Daviplata</option>
-                  </select>
-                  <button onClick={confirmarAccionCaja} disabled={cargando} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl shadow-md transition-all outline-none">
-                    Confirmar Pago ${entrenamientoACobrar.monto_generado.toLocaleString()}
-                  </button>
-                </div>
-             ) : (
-                <div className="animate-fade-in">
-                  <label className="block text-gray-500 font-bold mb-2 text-xs uppercase tracking-widest ml-1">Motivo / Nota</label>
-                  <input type="text" value={notaIngreso} onChange={e => setNotaIngreso(e.target.value)} placeholder="Ej: Me paga mañana..." className="w-full bg-red-50/50 border border-red-100 p-4 rounded-2xl text-gray-800 font-medium mb-6 outline-none focus:border-red-300" />
-                  <button onClick={confirmarAccionCaja} disabled={!notaIngreso || cargando} className="w-full bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 font-bold py-4 rounded-2xl transition-all outline-none">
-                    Guardar Nota
-                  </button>
-                </div>
-             )}
-          </div>
-        </div>
-      )}
+                 <div className="flex bg-gray-100 p-1 rounded-2xl mb-6">
+                    <button onClick={() => setAccionCajaTipo('pago')} className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all outline-none ${accionCajaTipo === 'pago' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Registrar Pago</button>
+                    <button onClick={() => setAccionCajaTipo('nota')} className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all outline-none ${accionCajaTipo === 'nota' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500'}`}>Dejar Pendiente</button>
+                 </div>
+
+                 {accionCajaTipo === 'pago' ? (
+                    <div className="animate-fade-in">
+                      
+                      {/* DETALLE DEL DÍA */}
+                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-4 flex justify-between items-center shadow-sm">
+                         <span className="font-bold text-gray-500 text-sm">Entrada de hoy</span>
+                         <span className="font-black text-gray-800 text-xl">${montoHoy.toLocaleString('es-CO')}</span>
+                      </div>
+
+                      {/* LISTA DE DEUDAS ANTERIORES SI LAS HAY */}
+                      {registrosAnteriores.length > 0 && (
+                         <div className="mb-4 bg-red-50 p-4 rounded-2xl border border-red-100 shadow-sm">
+                            <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-2 flex items-center gap-1"><IconoAlerta className="w-3 h-3"/> Días pendientes</p>
+                            <div className="max-h-24 overflow-y-auto custom-scrollbar mb-2">
+                                {registrosAnteriores.map((reg: any) => (
+                                   <div key={reg.id} className="flex justify-between items-center text-sm py-1 border-b border-red-100/50 last:border-0">
+                                       <span className="font-medium text-red-600 capitalize">{formatearFechaConDia(reg.fecha_asistencia)}</span>
+                                       <span className="font-bold text-red-600">${reg.monto_generado.toLocaleString()}</span>
+                                   </div>
+                                ))}
+                            </div>
+                            <div className="flex justify-between items-center text-sm pt-2 mt-1 border-t border-red-200">
+                               <span className="font-bold text-red-700">Total Atrasado</span>
+                               <span className="font-black text-red-700">${deudaAnterior.toLocaleString('es-CO')}</span>
+                            </div>
+                         </div>
+                      )}
+
+                      {/* CONTROLES DE PAGO */}
+                      <div className="bg-white p-4 rounded-2xl mb-4 border border-gray-200 shadow-sm">
+                         <label className="block text-gray-500 font-bold mb-3 text-[10px] uppercase tracking-widest">¿Cuánto va a pagar?</label>
+                         
+                         <div className="flex gap-2 mb-3">
+                            <button type="button" onClick={() => setMontoAbonoCaja(montoHoy)} className={`flex-1 border font-bold py-2.5 rounded-xl text-xs transition-colors outline-none ${montoAbonoCaja === montoHoy ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-500'}`}>
+                               Solo Hoy
+                            </button>
+                            
+                            {registrosAnteriores.length > 0 && (
+                               <button type="button" onClick={() => setMontoAbonoCaja(montoTotalPagar)} className={`flex-1 border font-bold py-2.5 rounded-xl text-xs transition-colors outline-none ${montoAbonoCaja === montoTotalPagar ? 'bg-green-50 border-green-200 text-green-600' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-500'}`}>
+                                 Pagar Todo
+                               </button>
+                            )}
+                         </div>
+
+                         <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400 font-black">$</span>
+                            <input type="number" min="1" max={montoTotalPagar} required value={montoAbonoCaja} onChange={(e) => setMontoAbonoCaja(Number(e.target.value))} className="w-full pl-8 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-green-200 text-lg" placeholder="O ingrese abono..." />
+                         </div>
+                      </div>
+
+                      <div className="mb-6">
+                         <label className="block text-gray-500 font-bold mb-2 text-[10px] uppercase tracking-widest ml-1">Medio de Pago</label>
+                         <select value={metodoPagoAbono} onChange={e => setMetodoPagoAbono(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-bold outline-none focus:border-green-200">
+                           <option value="Efectivo">💵 Efectivo</option>
+                           <option value="Nequi">📱 Nequi</option>
+                           <option value="Bancolombia">🏦 Bancolombia</option>
+                           <option value="Daviplata">🔴 Daviplata</option>
+                         </select>
+                      </div>
+
+                      <button onClick={confirmarAccionCaja} disabled={cargando || !montoAbonoCaja} className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white font-bold py-4 rounded-2xl shadow-md transition-all outline-none">
+                        {cargando ? 'Procesando...' : `Confirmar Pago $${Number(montoAbonoCaja).toLocaleString('es-CO')}`}
+                      </button>
+                    </div>
+                 ) : (
+                    <div className="animate-fade-in">
+                      <label className="block text-gray-500 font-bold mb-2 text-[10px] uppercase tracking-widest ml-1">Motivo / Nota</label>
+                      <input type="text" value={notaIngreso} onChange={e => setNotaIngreso(e.target.value)} placeholder="Ej: Me paga mañana..." className="w-full bg-red-50/50 border border-red-100 p-4 rounded-2xl text-gray-800 font-medium mb-6 outline-none focus:border-red-300" />
+                      <button onClick={confirmarAccionCaja} disabled={!notaIngreso || cargando} className="w-full bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 font-bold py-4 rounded-2xl transition-all outline-none">
+                        Guardar Nota
+                      </button>
+                    </div>
+                 )}
+              </div>
+            </div>
+         );
+      })()}
 
       {/* --- MODAL INTELIGENTE: PAGO TOTAL / ABONO AGRUPADO CON HISTORIAL --- */}
       {deudorSeleccionado && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
             <button type="button" onClick={() => {setDeudorSeleccionado(null); setMontoAbono("");}} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 outline-none"><IconoClose /></button>
             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4"><IconoWallet /></div>
             <h3 className="text-xl font-bold text-gray-800 leading-tight mb-1">{deudorSeleccionado.nombre}</h3>
@@ -909,16 +1002,19 @@ export default function Home() {
 
             <form onSubmit={procesarAbonoTotal}>
               <div className="bg-white p-4 rounded-2xl mb-6 border border-gray-200">
-                <label className="block text-gray-500 font-bold mb-3 text-xs uppercase tracking-widest">¿Cuánto va a pagar?</label>
+                <label className="block text-gray-500 font-bold mb-3 text-[10px] uppercase tracking-widest">¿Cuánto va a pagar?</label>
                 <div className="flex gap-2 mb-3">
-                  <button type="button" onClick={() => setMontoAbono(deudorSeleccionado.montoTotal)} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 font-bold py-2 rounded-xl text-xs transition-colors shadow-sm outline-none">Pagar Total</button>
-                  <button type="button" onClick={() => setMontoAbono("")} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-500 font-bold py-2 rounded-xl text-xs transition-colors shadow-sm outline-none">Otro monto</button>
+                  <button type="button" onClick={() => setMontoAbono(deudorSeleccionado.montoTotal)} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 font-bold py-2.5 rounded-xl text-xs transition-colors shadow-sm outline-none">Pagar Total</button>
+                  <button type="button" onClick={() => setMontoAbono("")} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-500 font-bold py-2.5 rounded-xl text-xs transition-colors shadow-sm outline-none">Otro monto</button>
                 </div>
-                <input type="number" min="1" max={deudorSeleccionado.montoTotal} required value={montoAbono} onChange={(e) => setMontoAbono(Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-red-200 text-lg" placeholder="Ej: 15000" />
+                <div className="relative">
+                   <span className="absolute left-3 top-3 text-gray-400 font-black">$</span>
+                   <input type="number" min="1" max={deudorSeleccionado.montoTotal} required value={montoAbono} onChange={(e) => setMontoAbono(Number(e.target.value))} className="w-full pl-8 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-red-200 text-lg" placeholder="Ej: 15000" />
+                </div>
               </div>
 
               <div className="mb-6">
-                <label className="block text-gray-500 font-bold mb-2 text-xs uppercase tracking-widest ml-1">Método</label>
+                <label className="block text-gray-500 font-bold mb-2 text-[10px] uppercase tracking-widest ml-1">Método</label>
                 <select value={metodoPagoAbono} onChange={(e) => setMetodoPagoAbono(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-xl text-gray-800 focus:outline-none focus:border-gray-300 font-bold outline-none">
                   <option value="Efectivo">💵 Efectivo</option><option value="Nequi">📱 Nequi</option><option value="Bancolombia">🏦 Bancolombia</option><option value="Daviplata">🔴 Daviplata</option>
                 </select>
