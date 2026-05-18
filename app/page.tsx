@@ -1,28 +1,41 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import Image from "next/image";
-
-// --- COMPONENTES DE ÍCONOS PREMIUM (SVGs MODERNOS) ---
-const IconoUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
-const IconoWallet = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>;
-const IconoTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>;
-const IconoCheck = ({ className = "" }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>;
-const IconoAlerta = ({ className = "" }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
-const IconoSearch = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
-const IconoClose = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
-const IconoStar = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
-const IconoTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>;
-const IconoEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>;
-const IconoChevronLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
-const IconoChevronRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
+import { AttendanceGridModal } from "./components/AttendanceGridModal";
+import { AppHeader } from "./components/AppHeader";
+import { HistorialPerfiles } from "./components/HistorialPerfiles";
+import { InicioScreen } from "./components/InicioScreen";
+import { LoginScreen } from "./components/LoginScreen";
+import {
+  IconoAlerta,
+  IconoCheck,
+  IconoChevronLeft,
+  IconoChevronRight,
+  IconoClose,
+  IconoEdit,
+  IconoSearch,
+  IconoStar,
+  IconoTrash,
+  IconoWallet,
+} from "./components/icons";
 
 export default function Home() {
+  type DialogoApp = {
+    tipo: "info" | "error" | "confirm";
+    titulo: string;
+    mensaje: string;
+    textoConfirmar?: string;
+    textoCancelar?: string;
+  };
+
   // --- CONTROL DE PANTALLAS ---
   const [pantalla, setPantalla] = useState('inicio'); 
   const [rolActivo, setRolActivo] = useState('asistente'); 
   const [vistaActiva, setVistaActiva] = useState('caja');
+  const [dialogoApp, setDialogoApp] = useState<DialogoApp | null>(null);
+  const resolverDialogoRef = useRef<((confirmado: boolean) => void) | null>(null);
 
   const [clave, setClave] = useState("");
   const [errorLogin, setErrorLogin] = useState(false);
@@ -74,6 +87,27 @@ export default function Home() {
     return d.toLocaleDateString('es-CO', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  const abrirDialogo = (dialogo: DialogoApp) => {
+    return new Promise<boolean>((resolve) => {
+      resolverDialogoRef.current = resolve;
+      setDialogoApp(dialogo);
+    });
+  };
+
+  const mostrarMensaje = async (titulo: string, mensaje: string, tipo: "info" | "error" = "info") => {
+    await abrirDialogo({ tipo, titulo, mensaje, textoConfirmar: "Aceptar" });
+  };
+
+  const pedirConfirmacion = (titulo: string, mensaje: string, textoConfirmar = "Confirmar") => {
+    return abrirDialogo({ tipo: "confirm", titulo, mensaje, textoConfirmar, textoCancelar: "Cancelar" });
+  };
+
+  const cerrarDialogo = (confirmado: boolean) => {
+    resolverDialogoRef.current?.(confirmado);
+    resolverDialogoRef.current = null;
+    setDialogoApp(null);
+  };
+
   // --- ESTADOS GLOBALES ---
   const [listaEntrenamientos, setListaEntrenamientos] = useState<any[]>([]);
   const [usuariosDB, setUsuariosDB] = useState<any[]>([]);
@@ -86,6 +120,9 @@ export default function Home() {
   const [resumenClientes, setResumenClientes] = useState<any[]>([]);
   const [visitasPorUsuario, setVisitasPorUsuario] = useState<Record<string, number>>({});
   const [clasesRestantesPaquete, setClasesRestantesPaquete] = useState<Record<string, number>>({});
+  const [entradasGratisRestantes, setEntradasGratisRestantes] = useState<Record<string, number>>({});
+  const [alertasPaquetes, setAlertasPaquetes] = useState<any[]>([]);
+  const [ultimoGanadorSorteo, setUltimoGanadorSorteo] = useState<any>(null);
   const [estadisticasDias, setEstadisticasDias] = useState<{dia: string, cantidad: number}>({dia: '-', cantidad: 0});
   
   const [verDetalleDeuda, setVerDetalleDeuda] = useState(false);
@@ -95,18 +132,7 @@ export default function Home() {
 
   // --- ESTADOS DE MODALES ---
   const [mostrarModal, setMostrarModal] = useState(false);
-  const [esNuevo, setEsNuevo] = useState(false);
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<any>(null); 
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [tipo, setTipo] = useState("Gimnasta"); 
-  const [cantidadAtletas, setCantidadAtletas] = useState(1); 
-  const [esIncentivo, setEsIncentivo] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [ingresoExitoso, setIngresoExitoso] = useState(false); 
-
-  const [busquedaUsuarioModal, setBusquedaUsuarioModal] = useState("");
-  const [mostrarDropdown, setMostrarDropdown] = useState(false);
 
   // Modal Inscripción / Edición
   const [mostrarModalInscripcion, setMostrarModalInscripcion] = useState(false);
@@ -138,15 +164,186 @@ export default function Home() {
   const mesesDelAno = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const tarifaPorAtletaProfesor = 10000; 
   const tarifaPaquete = 90000; 
+  const entradasPorPaquete = 12;
+  const metodoCompraPaquete = "Compra Paquete (12)";
+  const metodoUsoPaquete = "Uso de Paquete";
+  const metodoPremioSorteo = "Sorteo Semanal - Entrada Gratis";
+  const metodoUsoSorteo = "Uso Entrada Gratis Sorteo";
+  const nombreGimnasio = "Elite Gym Center";
+
+  const calcularPaquetes = (registros: any[]) => {
+    const paquetes: any[] = [];
+    const registrosOrdenados = [...registros].sort((a, b) => {
+      const fechaA = new Date(a.fecha_asistencia + "T00:00:00").getTime();
+      const fechaB = new Date(b.fecha_asistencia + "T00:00:00").getTime();
+      if (fechaA !== fechaB) return fechaA - fechaB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    registrosOrdenados.forEach((registro) => {
+      if (!registro.usuario_id) return;
+
+      if (registro.metodo_pago === metodoCompraPaquete) {
+        paquetes.push({
+          id: registro.id,
+          usuario_id: registro.usuario_id,
+          cliente: registro.usuarios_externos?.nombre || "Desconocido",
+          paquete: `Paquete de ${entradasPorPaquete} clases`,
+          fecha_compra: registro.fecha_asistencia,
+          entradas_totales: entradasPorPaquete,
+          entradas_usadas: 0,
+        });
+        return;
+      }
+
+      if (registro.metodo_pago === metodoUsoPaquete) {
+        const paqueteDisponible = paquetes.find((paquete) => paquete.usuario_id === registro.usuario_id && paquete.entradas_usadas < paquete.entradas_totales);
+        if (paqueteDisponible) paqueteDisponible.entradas_usadas += 1;
+      }
+    });
+
+    const clasesRestantesPorUsuario: Record<string, number> = {};
+    paquetes.forEach((paquete) => {
+      const restantes = paquete.entradas_totales - paquete.entradas_usadas;
+      clasesRestantesPorUsuario[paquete.usuario_id] = (clasesRestantesPorUsuario[paquete.usuario_id] || 0) + restantes;
+    });
+
+    return { paquetes, clasesRestantesPorUsuario };
+  };
+
+  const calcularEntradasGratis = (registros: any[]) => {
+    const entradasGratis: Record<string, number> = {};
+
+    registros.forEach((registro) => {
+      if (!registro.usuario_id) return;
+      if (registro.metodo_pago === metodoPremioSorteo) entradasGratis[registro.usuario_id] = (entradasGratis[registro.usuario_id] || 0) + 1;
+      if (registro.metodo_pago === metodoUsoSorteo) entradasGratis[registro.usuario_id] = (entradasGratis[registro.usuario_id] || 0) - 1;
+    });
+
+    Object.keys(entradasGratis).forEach((uid) => {
+      if (entradasGratis[uid] < 0) entradasGratis[uid] = 0;
+    });
+
+    return entradasGratis;
+  };
+
+  const obtenerDeudaCliente = (usuarioId: string) => {
+    const registros = registrosGlobales
+      .filter((registro) => registro.usuario_id === usuarioId && registro.estado_pago === "Pendiente")
+      .sort((a, b) => new Date(a.fecha_asistencia).getTime() - new Date(b.fecha_asistencia).getTime());
+    const saldo = registros.reduce((sum, registro) => sum + Number(registro.monto_generado), 0);
+    return { saldo, registros };
+  };
+
+  const limpiarTelefonoWhatsApp = (telefono?: string | null) => {
+    const digitos = (telefono || "").replace(/\D/g, "");
+    if (!digitos) return null;
+    if (digitos.length === 10 && digitos.startsWith("3")) return `57${digitos}`;
+    if (digitos.length === 12 && digitos.startsWith("57")) return digitos;
+    if (digitos.length >= 8 && digitos.length <= 15) return digitos;
+    return null;
+  };
+
+  const generarMensajeWhatsApp = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" = "estado") => {
+    const deuda = obtenerDeudaCliente(usuario.id);
+    const fechaActual = new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", year: "numeric", month: "long", day: "numeric" });
+
+    if (tipo === "sorteo") {
+      return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nGanaste el sorteo semanal: tienes 1 entrada gratis disponible.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
+    }
+
+    if (deuda.saldo <= 0) {
+      return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nTe compartimos tu estado de cuenta actualizado.\n\nActualmente no registras saldo pendiente. Tu cuenta se encuentra al día.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
+    }
+
+    const detalle = deuda.registros
+      .map((registro: any) => `- ${formatearFechaConDia(registro.fecha_asistencia)}: $${Number(registro.monto_generado).toLocaleString("es-CO")}`)
+      .join("\n");
+    const textoDetalle = deuda.registros.length === 1
+      ? "Este valor corresponde al siguiente pendiente:"
+      : "Este valor corresponde a los siguientes pendientes:";
+
+    return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nTe compartimos tu estado de cuenta actualizado.\n\nActualmente registras un saldo pendiente de $${deuda.saldo.toLocaleString("es-CO")}.\n\n${textoDetalle}\n${detalle}\n\nPor favor, realiza el pago pendiente para mantener tu acceso activo.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
+  };
+
+  const abrirWhatsAppCliente = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" = "estado") => {
+    const telefonoLimpio = limpiarTelefonoWhatsApp(usuario.telefono);
+    if (!usuario.telefono) {
+      mostrarMensaje("Teléfono no disponible", `No hay teléfono guardado para ${usuario.nombre}.`, "error");
+      return;
+    }
+    if (!telefonoLimpio) {
+      mostrarMensaje("Teléfono inválido", `El teléfono de ${usuario.nombre} no tiene un formato válido para WhatsApp.`, "error");
+      return;
+    }
+
+    const mensaje = generarMensajeWhatsApp(usuario, tipo);
+    const etiqueta = tipo === "sorteo" ? "aviso del sorteo" : tipo === "recordatorio" ? "recordatorio de pago" : "estado de cuenta";
+    pedirConfirmacion("Abrir WhatsApp", `¿Deseas abrir WhatsApp para enviar ${etiqueta} a ${usuario.nombre}?`, "Abrir WhatsApp").then((confirmado) => {
+      if (!confirmado) return;
+      window.open(`https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
+    });
+  };
+
+  const obtenerInicioSemana = (fecha: Date) => {
+    const inicio = new Date(fecha);
+    inicio.setDate(inicio.getDate() - inicio.getDay());
+    return getFechaLocal(inicio);
+  };
+
+  const sincronizarAlertasPaquetes = async (paquetes: any[]) => {
+    const paquetesPorVencer = paquetes
+      .map((paquete) => ({
+        ...paquete,
+        entradas_restantes: paquete.entradas_totales - paquete.entradas_usadas,
+      }))
+      .filter((paquete) => paquete.entradas_restantes === 2);
+
+    if (paquetesPorVencer.length === 0) {
+      setAlertasPaquetes([]);
+      return;
+    }
+
+    const idsPaquetes = paquetesPorVencer.map((paquete) => paquete.id);
+    const { data: alertasExistentes, error: errorAlertas } = await supabase
+      .from("alertas_paquetes")
+      .select("*")
+      .in("registro_paquete_id", idsPaquetes)
+      .order("created_at", { ascending: false });
+
+    if (errorAlertas) {
+      console.warn("Alertas de paquetes no disponibles:", errorAlertas.message);
+      setAlertasPaquetes(paquetesPorVencer);
+      return;
+    }
+
+    const idsAlertados = new Set((alertasExistentes || []).map((alerta) => alerta.registro_paquete_id));
+    const nuevasAlertas = paquetesPorVencer
+      .filter((paquete) => !idsAlertados.has(paquete.id))
+      .map((paquete) => ({
+        registro_paquete_id: paquete.id,
+        usuario_id: paquete.usuario_id,
+        paquete_nombre: paquete.paquete,
+        entradas_restantes: paquete.entradas_restantes,
+        fecha_compra: paquete.fecha_compra,
+      }));
+
+    if (nuevasAlertas.length > 0) {
+      const { error: errorInsert } = await supabase.from("alertas_paquetes").insert(nuevasAlertas);
+      if (errorInsert) console.warn("No se pudieron guardar alertas de paquetes:", errorInsert.message);
+    }
+
+    setAlertasPaquetes(paquetesPorVencer);
+  };
 
   const procesarFinanzas = (registros: any[], mes: number, anio: number) => {
     let ingMes = 0; let ingSemana = 0; let deuda = 0; let ingAnual = 0;
     const clientesAgrupados: Record<string, any> = {};
     const conteoVisitasFidelidad: Record<string, number> = {};
     const deudoresAgrupados: Record<string, any> = {};
-    const paquetesComprados: Record<string, number> = {};
-    const paquetesUsados: Record<string, number> = {};
     const conteoDias: Record<number, number> = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
+    const { paquetes, clasesRestantesPorUsuario } = calcularPaquetes(registros);
+    const entradasGratis = calcularEntradasGratis(registros);
 
     const hoy = new Date();
     const inicioSemana = new Date(hoy);
@@ -163,9 +360,6 @@ export default function Home() {
       if (ent.cantidad_atletas > 0) conteoDias[fechaEnt.getDay()] += Number(ent.cantidad_atletas);
 
       if (uid) {
-        if (ent.metodo_pago === 'Compra Paquete (12)') paquetesComprados[uid] = (paquetesComprados[uid] || 0) + 12;
-        if (ent.metodo_pago === 'Uso de Paquete') paquetesUsados[uid] = (paquetesUsados[uid] || 0) + 1;
-        
         if (!clientesAgrupados[uid]) {
           clientesAgrupados[uid] = { nombre: ent.usuarios_externos?.nombre || 'Desconocido', telefono: ent.usuarios_externos?.telefono || '-', tipo: tipoUsuarioBD, totalPagado: 0, visitasTotales: 0 };
         }
@@ -190,11 +384,9 @@ export default function Home() {
       }
     });
 
-    const clasesRest: Record<string, number> = {};
-    Object.keys(paquetesComprados).forEach(uid => {
-      clasesRest[uid] = paquetesComprados[uid] - (paquetesUsados[uid] || 0);
-    });
-    setClasesRestantesPaquete(clasesRest);
+    setClasesRestantesPaquete(clasesRestantesPorUsuario);
+    setEntradasGratisRestantes(entradasGratis);
+    if (rolActivo === "admin") sincronizarAlertasPaquetes(paquetes);
 
     const nombresDias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     let mejorDiaIndex = 0; let maxAtletas = 0;
@@ -232,62 +424,6 @@ export default function Home() {
   };
 
   useEffect(() => { if (pantalla === 'app') cargarDatos(); }, [pantalla, mesConsulta, anioConsulta, fechaCaja]);
-
-  const guardarIngreso = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCargando(true);
-    try {
-      let usuarioId = usuarioSeleccionado?.id;
-      let tipoUs = tipo;
-
-      if (esNuevo) {
-        const { data: u, error: eU } = await supabase.from("usuarios_externos").insert([{ nombre, telefono, tipo_usuario: tipo }]).select().single();
-        if (eU) throw eU;
-        usuarioId = u.id; tipoUs = u.tipo_usuario;
-      } else {
-        tipoUs = usuarioSeleccionado?.tipo_usuario || "Gimnasta";
-      }
-
-      if (!usuarioId) throw new Error("Debes seleccionar un usuario.");
-
-      const esProfesor = tipoUs === "Profesor";
-      const clasesQueLeQuedan = clasesRestantesPaquete[usuarioId] || 0;
-      const usarPaquete = (clasesQueLeQuedan > 0 && !esProfesor);
-
-      const visitasPrevias = visitasPorUsuario[usuarioId] || 0;
-      const esCortesiaFidelidad = !esProfesor && !usarPaquete && (visitasPrevias % 11 === 10); 
-      const cant = !esProfesor ? 1 : cantidadAtletas;
-      
-      let monto = 0; let estado = "Pendiente"; let metodo = null;
-
-      if (usarPaquete) {
-        monto = 0; estado = "Pagado"; metodo = "Uso de Paquete";
-      } else if (esIncentivo) {
-        monto = 0; estado = "Pagado"; metodo = "Incentivo Habilidad";
-      } else if (esCortesiaFidelidad) {
-        monto = 0; estado = "Pagado"; metodo = "Cortesía Fidelidad";
-      } else {
-        monto = !esProfesor ? 10000 : (tarifaPorAtletaProfesor * cantidadAtletas);
-        estado = "Pendiente";
-      }
-
-      const { error: eR } = await supabase.from("registro_entrenamientos").insert([{ 
-        usuario_id: usuarioId, cantidad_atletas: cant, monto_generado: monto, estado_pago: estado, metodo_pago: metodo, fecha_asistencia: fechaCaja 
-      }]);
-      if (eR) throw eR;
-
-      setIngresoExitoso(true);
-      setTimeout(() => setIngresoExitoso(false), 2000);
-      
-      setNombre(""); setTelefono(""); setCantidadAtletas(1); setUsuarioSeleccionado(null); setBusquedaUsuarioModal(""); setEsIncentivo(false);
-      
-      if (estado === "Pagado") setFiltroCaja("pagados");
-      else setFiltroCaja("pendientes");
-
-      cargarDatos();
-    } catch (error) { alert("Error: " + (error as Error).message); } 
-    finally { setCargando(false); }
-  };
 
   const confirmarAccionCaja = async () => {
     if (!entrenamientoACobrar) return;
@@ -328,19 +464,76 @@ export default function Home() {
       setEntrenamientoACobrar(null);
       setMontoAbonoCaja("");
       cargarDatos();
-    } catch (error) { alert("Error al actualizar: " + (error as Error).message); }
+    } catch (error) { mostrarMensaje("No se pudo actualizar", (error as Error).message, "error"); }
     finally { setCargando(false); }
   };
 
   const venderPaquete = async (uid: string) => {
-    if (!window.confirm("¿Confirmar venta de paquete de 12 clases por $90.000? (Se registrará como pagado hoy)")) return;
+    if (!await pedirConfirmacion("Vender paquete", "¿Confirmas la venta de un paquete de 12 clases por $90.000? Se registrará como pagado hoy.", "Confirmar venta")) return;
     try {
       const { error } = await supabase.from("registro_entrenamientos").insert([{ 
         usuario_id: uid, cantidad_atletas: 0, monto_generado: tarifaPaquete, estado_pago: 'Pagado', metodo_pago: 'Compra Paquete (12)', fecha_asistencia: getFechaLocal(new Date()) 
       }]);
       if (error) throw error;
       cargarDatos();
-    } catch (error) { alert("Error al activar paquete."); }
+    } catch { mostrarMensaje("No se pudo activar el paquete", "Revisa la conexión o permisos de Supabase e inténtalo nuevamente.", "error"); }
+  };
+
+  const realizarSorteoSemanal = async () => {
+    if (rolActivo !== "admin") return;
+    const participantes = usuariosDB.filter((usuario) => (usuario.tipo_usuario || "").trim() !== "Profesor");
+    if (participantes.length === 0) {
+      mostrarMensaje("Sorteo no disponible", "No hay clientes inscritos para realizar el sorteo.", "info");
+      return;
+    }
+
+    const hoy = new Date();
+    const fechaSorteo = getFechaLocal(hoy);
+    const semanaInicio = obtenerInicioSemana(hoy);
+
+    setCargando(true);
+    try {
+      const { data: sorteosSemana, error: errorConsulta } = await supabase
+        .from("sorteos_semanales")
+        .select("id, ganador_id, fecha_sorteo")
+        .eq("semana_inicio", semanaInicio);
+
+      if (errorConsulta) throw errorConsulta;
+      if ((sorteosSemana || []).length > 0 && !await pedirConfirmacion("Sorteo ya registrado", "Ya existe un sorteo registrado esta semana. ¿Deseas realizar otro sorteo de todos modos?", "Realizar otro")) return;
+
+      const ganador = participantes[Math.floor(Math.random() * participantes.length)];
+      const { data: sorteoCreado, error: errorSorteo } = await supabase
+        .from("sorteos_semanales")
+        .insert([{
+          ganador_id: ganador.id,
+          fecha_sorteo: fechaSorteo,
+          semana_inicio: semanaInicio,
+          premio: "1 entrada gratis",
+          admin_ejecutor: rolActivo,
+        }])
+        .select()
+        .single();
+
+      if (errorSorteo) throw errorSorteo;
+
+      const { error: errorEntrada } = await supabase.from("registro_entrenamientos").insert([{
+        usuario_id: ganador.id,
+        cantidad_atletas: 0,
+        monto_generado: 0,
+        estado_pago: "Pagado",
+        metodo_pago: metodoPremioSorteo,
+        fecha_asistencia: fechaSorteo,
+      }]);
+
+      if (errorEntrada) throw errorEntrada;
+
+      setUltimoGanadorSorteo({ ...ganador, sorteo: sorteoCreado });
+      await cargarDatos();
+    } catch (error) {
+      mostrarMensaje("No se pudo realizar el sorteo", (error as Error).message, "error");
+    } finally {
+      setCargando(false);
+    }
   };
 
   const procesarAbonoTotal = async (e: React.FormEvent) => {
@@ -366,7 +559,7 @@ export default function Home() {
       }
       setDeudorSeleccionado(null); setMontoAbono("");
       cargarDatos();
-    } catch (error) { alert("Error: " + (error as Error).message); }
+    } catch (error) { mostrarMensaje("No se pudo registrar el abono", (error as Error).message, "error"); }
     finally { setCargando(false); }
   };
 
@@ -378,7 +571,7 @@ export default function Home() {
       if (error) throw error;
       setNombreInsc(""); setTelefonoInsc(""); setMostrarModalInscripcion(false);
       cargarDatos();
-    } catch (error) { alert("Error: " + (error as Error).message); } 
+    } catch (error) { mostrarMensaje("No se pudo guardar la ficha", (error as Error).message, "error"); }
     finally { setCargando(false); }
   };
 
@@ -391,7 +584,7 @@ export default function Home() {
       if (error) throw error;
       setNombreInsc(""); setTelefonoInsc(""); setMostrarModalEdicion(false); setUsuarioAEditar(null);
       cargarDatos();
-    } catch (error) { alert("Error al editar: " + (error as Error).message); } 
+    } catch (error) { mostrarMensaje("No se pudo editar la ficha", (error as Error).message, "error"); }
     finally { setCargando(false); }
   };
 
@@ -404,30 +597,30 @@ export default function Home() {
   };
 
   const eliminarUsuario = async (id: string, nombre: string) => {
-    if (!window.confirm(`ATENCIÓN: ¿Estás seguro de eliminar a ${nombre}? (Perderás todo su historial)`)) return;
+    if (!await pedirConfirmacion("Eliminar cliente", `¿Estás seguro de eliminar a ${nombre}? Esta acción puede afectar su historial.`, "Eliminar")) return;
     try {
       const { error } = await supabase.from('usuarios_externos').delete().eq('id', id);
       if (error) throw error;
       cargarDatos();
-    } catch (error) { alert("No se puede eliminar (probablemente tenga registros en el historial)."); }
+    } catch { mostrarMensaje("No se pudo eliminar", "No se puede eliminar este cliente. Probablemente tiene registros en el historial.", "error"); }
   };
 
-  const eliminarIngreso = async (id: number) => {
-    if (!window.confirm("¿Seguro que deseas ELIMINAR por completo este registro?")) return;
+  const eliminarIngreso = async (id: string) => {
+    if (!await pedirConfirmacion("Eliminar registro", "¿Seguro que deseas eliminar por completo este registro?", "Eliminar")) return;
     try {
       const { error } = await supabase.from('registro_entrenamientos').delete().eq('id', id);
       if (error) throw error;
       cargarDatos();
-    } catch (error) { alert("Error al eliminar"); }
+    } catch { mostrarMensaje("No se pudo eliminar", "El registro no pudo eliminarse.", "error"); }
   };
 
-  const reversarPago = async (id: number) => {
-    if (!window.confirm("¿Estás seguro que deseas anular este pago? Volverá a aparecer como DEUDA.")) return;
+  const reversarPago = async (id: string) => {
+    if (!await pedirConfirmacion("Anular pago", "¿Estás seguro de anular este pago? Volverá a aparecer como deuda.", "Anular pago")) return;
     try {
       const { error } = await supabase.from('registro_entrenamientos').update({ estado_pago: 'Pendiente', metodo_pago: null }).eq('id', id);
       if (error) throw error;
       cargarDatos();
-    } catch (error) { alert("Error al anular: " + (error as Error).message); }
+    } catch (error) { mostrarMensaje("No se pudo anular el pago", (error as Error).message, "error"); }
   };
 
   const totalPersonasHoy = listaEntrenamientos.reduce((suma, item) => suma + Number(item.cantidad_atletas), 0);
@@ -443,86 +636,18 @@ export default function Home() {
 
   const deudoresFiltrados = listaDeudoresAgrupados.filter(deuda => deuda.nombre.toLowerCase().includes(busquedaDeuda.toLowerCase()));
 
-  const usuariosModalFiltrados = useMemo(() => {
-    if (!busquedaUsuarioModal) return usuariosDB;
-    return usuariosDB.filter(u => u.nombre.toLowerCase().includes(busquedaUsuarioModal.toLowerCase()));
-  }, [busquedaUsuarioModal, usuariosDB]);
-
   // --- RENDERING PRINCIPAL ---
   if (pantalla === 'inicio') {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4 selection:bg-blue-200">
-        <div className="bg-white p-12 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] max-w-3xl w-full text-center border border-gray-100 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-blue-900"></div>
-          <div className="flex justify-center mb-8">
-             <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 inline-block">
-               <Image src="/logo.png" alt="Logo Gimnasio" width={110} height={110} className="object-contain" priority />
-             </div>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-blue-950 mb-3">Control <span className="text-blue-600">Externo</span></h1>
-          <p className="text-gray-400 font-medium mb-12">Plataforma de gestión inteligente</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button onClick={entrarComoAsistente} className="group bg-white border border-gray-200 hover:border-blue-500 hover:shadow-lg py-10 rounded-3xl transition-all duration-300 flex flex-col items-center justify-center">
-              <div className="text-blue-500 mb-4 group-hover:scale-110 transition-transform duration-300"><IconoUser /></div>
-              <span className="text-xl font-bold text-gray-800">Recepción</span>
-            </button>
-            <button onClick={() => setPantalla('login')} className="group bg-white border border-gray-200 hover:border-blue-500 hover:shadow-lg py-10 rounded-3xl transition-all duration-300 flex flex-col items-center justify-center">
-              <div className="text-blue-950 mb-4 group-hover:scale-110 transition-transform duration-300"><IconoWallet /></div>
-              <span className="text-xl font-bold text-gray-800">Administración</span>
-            </button>
-          </div>
-        </div>
-      </main>
-    );
+    return <InicioScreen onEntrarAsistente={entrarComoAsistente} onEntrarAdmin={() => setPantalla('login')} />;
   }
 
   if (pantalla === 'login') {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-12 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] max-w-sm w-full text-center border border-gray-100 relative">
-          <button onClick={() => setPantalla('inicio')} className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 font-medium transition-colors outline-none">← Atrás</button>
-          <div className="flex justify-center mb-6 mt-4"><div className="bg-blue-50 text-blue-600 p-4 rounded-3xl"><IconoWallet /></div></div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Seguro</h2>
-          <p className="text-gray-400 text-sm mb-8">Ingresa tu PIN de administrador</p>
-          <form onSubmit={iniciarSesionAdmin}>
-            <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-center text-3xl tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white mb-6 text-gray-800 transition-all outline-none" placeholder="••••" />
-            {errorLogin && <p className="text-red-500 font-medium mb-6 text-sm bg-red-50 py-2 rounded-xl">PIN incorrecto</p>}
-            <button type="submit" className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-4 rounded-2xl shadow-md transition-all outline-none">Verificar</button>
-          </form>
-        </div>
-      </main>
-    );
+    return <LoginScreen clave={clave} errorLogin={errorLogin} onClaveChange={setClave} onSubmit={iniciarSesionAdmin} onBack={() => setPantalla('inicio')} />;
   }
 
   return (
     <main className="min-h-screen bg-slate-50 font-sans pb-10">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-gray-50 p-2 rounded-2xl border border-gray-100 flex-shrink-0">
-               <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain" priority />
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-blue-950 leading-none">ELITE <span className="text-blue-600">SYSTEM</span></h1>
-              <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full mt-1 inline-block ${rolActivo === 'admin' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>Sesión: {rolActivo}</span>
-            </div>
-          </div>
-          <nav className="flex items-center gap-2 overflow-x-auto w-full md:w-auto hide-scrollbar">
-            <div className="flex bg-gray-100 rounded-2xl p-1 border border-gray-200">
-              <button onClick={() => setVistaActiva('caja')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'caja' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Caja Diaria</button>
-              {rolActivo === 'admin' && (
-                <>
-                  <button onClick={() => setVistaActiva('finanzas')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'finanzas' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Finanzas</button>
-                  <button onClick={() => setVistaActiva('basedatos')} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all whitespace-nowrap outline-none ${vistaActiva === 'basedatos' ? 'bg-white text-blue-950 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Directorio</button>
-                </>
-              )}
-            </div>
-            <button onClick={cerrarSesion} className="ml-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold p-3 rounded-2xl transition-colors outline-none" title="Cerrar Sesión">
-              <IconoClose />
-            </button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader rolActivo={rolActivo} vistaActiva={vistaActiva} onVistaChange={setVistaActiva} onCerrarSesion={cerrarSesion} />
 
       {vistaActiva === 'caja' && (
         <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
@@ -543,8 +668,8 @@ export default function Home() {
                   )}
                </div>
                
-               <button onClick={() => {setMostrarModal(true); setEsIncentivo(false); setIngresoExitoso(false);}} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
-                 Nueva Entrada +
+               <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
+                 Tomar Asistencia
                </button>
              </div>
              
@@ -567,6 +692,37 @@ export default function Home() {
                 </div>
              </div>
           </div>
+
+          {rolActivo === 'admin' && alertasPaquetes.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-5 mb-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-amber-600"><IconoAlerta /></span>
+                <h3 className="text-lg font-black text-amber-900">Paquetes por finalizar</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                 {alertasPaquetes.map((alerta) => (
+                  <div key={alerta.id} className="bg-white border border-amber-100 rounded-2xl p-4">
+                    <p className="font-black text-gray-800 truncate">{alerta.cliente}</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-1">{alerta.paquete}</p>
+                    <div className="flex justify-between items-end mt-4 gap-3">
+                      <span className="bg-amber-100 text-amber-700 font-black px-3 py-1.5 rounded-xl text-sm">{alerta.entradas_restantes} entradas</span>
+                      <span className="text-[11px] font-bold text-gray-400 text-right">Compra: {formatearFechaConDia(alerta.fecha_compra)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const usuario = usuariosDB.find((u) => u.id === alerta.usuario_id);
+                        if (usuario) abrirWhatsAppCliente(usuario, "estado");
+                      }}
+                      className="mt-3 w-full bg-green-50 text-green-700 hover:bg-green-100 font-bold py-2 rounded-xl text-xs transition-colors outline-none"
+                    >
+                      WhatsApp
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
             <div className="flex bg-gray-200/50 p-1.5 rounded-2xl w-full md:w-auto">
@@ -677,6 +833,14 @@ export default function Home() {
              </div>
           </div>
 
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 mb-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Mejor día operativo</p>
+              <p className="text-xl font-black text-gray-800">{estadisticasDias.dia}</p>
+            </div>
+            <p className="text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 px-4 py-2 rounded-2xl">{estadisticasDias.cantidad} atletas registrados</p>
+          </div>
+
           {topDeudores.length > 0 && !verDetalleDeuda && !verDetallePagos && (
              <div className="mb-10 animate-fade-in">
                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -687,7 +851,20 @@ export default function Home() {
                    <div key={i} onClick={() => setDeudorSeleccionado(d)} className="bg-white p-5 rounded-3xl border border-red-100 shadow-sm cursor-pointer hover:shadow-md hover:border-red-300 transition-all">
                      <p className="font-bold text-gray-800 truncate">{d.nombre}</p>
                      <p className="text-2xl font-black text-red-500 mt-2">${d.montoTotal.toLocaleString('es-CO')}</p>
-                     <p className="text-xs font-medium text-red-400 mt-3 inline-block bg-red-50 px-2 py-1 rounded-md">{d.registros.length} entradas</p>
+                     <div className="flex items-center justify-between gap-2 mt-3">
+                       <p className="text-xs font-medium text-red-400 inline-block bg-red-50 px-2 py-1 rounded-md">{d.registros.length} entradas</p>
+                       <button
+                         type="button"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           const usuario = usuariosDB.find((u) => u.id === d.usuario_id);
+                           if (usuario) abrirWhatsAppCliente(usuario, "recordatorio");
+                         }}
+                         className="text-xs bg-green-50 text-green-700 hover:bg-green-100 font-bold px-3 py-1.5 rounded-lg outline-none"
+                       >
+                         WhatsApp
+                       </button>
+                     </div>
                    </div>
                  ))}
                </div>
@@ -717,7 +894,20 @@ export default function Home() {
                          </div>
                          <p className="text-3xl font-black text-red-500 mb-4">${d.montoTotal.toLocaleString('es-CO')}</p>
                        </div>
-                       <button className="w-full bg-red-50 text-red-600 font-bold py-2 rounded-xl text-sm transition-colors hover:bg-red-100 outline-none">Saldar Deuda</button>
+                       <div className="grid grid-cols-2 gap-2">
+                         <button className="bg-red-50 text-red-600 font-bold py-2 rounded-xl text-sm transition-colors hover:bg-red-100 outline-none">Saldar Deuda</button>
+                         <button
+                           type="button"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             const usuario = usuariosDB.find((u) => u.id === d.usuario_id);
+                             if (usuario) abrirWhatsAppCliente(usuario, "recordatorio");
+                           }}
+                           className="bg-green-50 text-green-700 font-bold py-2 rounded-xl text-sm transition-colors hover:bg-green-100 outline-none"
+                         >
+                           WhatsApp
+                         </button>
+                       </div>
                     </div>
                   ))}
                 </div>
@@ -751,13 +941,35 @@ export default function Home() {
         </div>
       )}
 
+      {vistaActiva === 'historial' && rolActivo === 'admin' && (
+        <HistorialPerfiles
+          usuarios={usuariosDB}
+          registros={registrosGlobales}
+          clasesRestantesPaquete={clasesRestantesPaquete}
+          formatearFechaConDia={formatearFechaConDia}
+        />
+      )}
+
       {/* --- AQUÍ ESTÁ EL BLOQUE RESTAURADO: DIRECTORIO DE ATLETAS --- */}
       {vistaActiva === 'basedatos' && rolActivo === 'admin' && (
         <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-gray-200 pb-4 gap-4">
             <div><h2 className="text-3xl font-black text-gray-800 tracking-tight">Directorio de Atletas</h2></div>
-            <button onClick={() => setMostrarModalInscripcion(true)} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none">+ Inscribir Cliente</button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <button onClick={realizarSorteoSemanal} disabled={cargando} className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none disabled:opacity-50">Realizar sorteo semanal</button>
+              <button onClick={() => setMostrarModalInscripcion(true)} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none">+ Inscribir Cliente</button>
+            </div>
           </div>
+          {ultimoGanadorSorteo && (
+            <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-5 mb-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-1">Ganador del sorteo semanal</p>
+                <h3 className="text-xl font-black text-gray-800">{ultimoGanadorSorteo.nombre}</h3>
+                <p className="text-sm font-bold text-amber-700 mt-1">Premio: 1 entrada gratis</p>
+              </div>
+              <button onClick={() => abrirWhatsAppCliente(ultimoGanadorSorteo, "sorteo")} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold shadow-sm transition-colors outline-none">Enviar WhatsApp</button>
+            </div>
+          )}
           <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -767,9 +979,14 @@ export default function Home() {
                 <tbody className="divide-y divide-gray-50">
                   {usuariosDB.map((u, i) => {
                     const clasesLeft = clasesRestantesPaquete[u.id] || 0;
+                    const gratisLeft = entradasGratisRestantes[u.id] || 0;
                     return (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-5"><p className="font-bold text-gray-800">{u.nombre}</p><p className="text-[11px] text-gray-400 font-bold mt-1 uppercase tracking-wider">{u.telefono || 'Sin contacto'} • {u.tipo_usuario}</p></td>
+                        <td className="p-5">
+                          <p className="font-bold text-gray-800">{u.nombre}</p>
+                          <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase tracking-wider">{u.telefono || 'Sin contacto'} • {u.tipo_usuario}</p>
+                          {gratisLeft > 0 && <span className="mt-2 inline-block bg-amber-100 text-amber-700 font-black text-[10px] px-2 py-1 rounded-lg">{gratisLeft} gratis</span>}
+                        </td>
                         <td className="p-5 text-center">
                           {u.tipo_usuario !== 'Profesor' ? (
                             clasesLeft > 0 ? <span className="bg-green-100 text-green-700 font-black px-3 py-1.5 rounded-xl">{clasesLeft} Clases</span> : <button onClick={() => venderPaquete(u.id)} className="bg-gray-100 hover:bg-green-50 text-gray-500 hover:text-green-600 font-bold px-4 py-2 rounded-xl text-xs transition-colors border border-gray-200 outline-none">Vender Paquete</button>
@@ -777,6 +994,7 @@ export default function Home() {
                         </td>
                         <td className="p-5 text-right">
                           <div className="flex justify-end gap-2">
+                             <button onClick={() => abrirWhatsAppCliente(u, "estado")} className="text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-2 rounded-xl transition-colors outline-none text-xs font-bold">WhatsApp</button>
                              <button onClick={() => abrirModalEditar(u)} className="text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 p-2 rounded-xl transition-colors outline-none"><IconoEdit /></button>
                              <button onClick={() => eliminarUsuario(u.id, u.nombre)} className="text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 p-2 rounded-xl transition-colors outline-none"><IconoTrash /></button>
                           </div>
@@ -791,93 +1009,21 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- MODAL ASISTENCIA EXPRESS --- */}
-      {mostrarModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative overflow-visible">
-            
-            {ingresoExitoso && (
-              <div className="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in rounded-[2.5rem]">
-                <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-4 text-green-500"><IconoCheck className="w-10 h-10"/></div>
-                <h3 className="text-2xl font-black text-gray-800">¡Guardado!</h3>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-black text-gray-800">Toma de Asistencia</h3>
-              <button type="button" onClick={() => setMostrarModal(false)} className="bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center font-bold outline-none"><IconoClose /></button>
-            </div>
-            
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-6">
-              <button onClick={() => setEsNuevo(false)} className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all outline-none ${!esNuevo ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Registrado</button>
-              <button onClick={() => setEsNuevo(true)} className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all outline-none ${esNuevo ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Nuevo Fichaje</button>
-            </div>
-            
-            <form onSubmit={guardarIngreso} className="space-y-4">
-              {!esNuevo ? (
-                <div className="relative">
-                  <div className="relative">
-                    <span className="absolute left-4 top-4 text-gray-400"><IconoSearch /></span>
-                    <input type="text" placeholder="Buscar por nombre..." value={usuarioSeleccionado ? usuarioSeleccionado.nombre : busquedaUsuarioModal} onChange={(e) => { setBusquedaUsuarioModal(e.target.value); setUsuarioSeleccionado(null); setMostrarDropdown(true); }} onFocus={() => setMostrarDropdown(true)} className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-100 font-medium" />
-                  </div>
-                  
-                  {mostrarDropdown && (
-                    <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-                      {usuariosModalFiltrados.map((u) => {
-                        const isPaquete = clasesRestantesPaquete[u.id] > 0;
-                        return (
-                          <div key={u.id} onClick={() => { setUsuarioSeleccionado(u); setBusquedaUsuarioModal(u.nombre); setMostrarDropdown(false); }} className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center transition-colors">
-                            <div><p className="font-bold text-gray-800">{u.nombre}</p><p className="text-[10px] uppercase font-bold text-gray-400">{u.tipo_usuario}</p></div>
-                            {isPaquete && <span className="bg-green-100 text-green-700 text-[10px] font-black uppercase px-2 py-1 rounded-md">Paquete</span>}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                </div>
-              ) : (
-                <div className="space-y-4 animate-fade-in">
-                  <input type="text" required value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-medium outline-none focus:ring-2 focus:ring-blue-100" placeholder="Nombre completo" />
-                  <input type="text" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-medium outline-none focus:ring-2 focus:ring-blue-100" placeholder="Teléfono" />
-                  
-                  <select value={tipo} onChange={(e) => { setTipo(e.target.value); setCantidadAtletas(1); }} className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-gray-800 font-bold outline-none focus:ring-2 focus:ring-blue-100">
-                    <optgroup label="Atletas ($10k o Paquete)">
-                       <option value="Gimnasta">Gimnasta</option>
-                       <option value="Cheer">Cheer</option>
-                       <option value="Bailarín">Bailarín</option>
-                       <option value="Acróbata">Acróbata</option>
-                    </optgroup>
-                    <optgroup label="Staff">
-                       <option value="Profesor">Profesor Externo</option>
-                    </optgroup>
-                  </select>
-                </div>
-              )}
-              
-              {(tipo === "Profesor" || usuarioSeleccionado?.tipo_usuario === "Profesor") && (
-                <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 animate-fade-in">
-                  <label className="block text-blue-900 font-bold mb-3 text-sm uppercase tracking-wider">Atletas a cargo hoy:</label>
-                  <input type="number" min="1" required value={cantidadAtletas} onChange={(e) => setCantidadAtletas(Number(e.target.value))} className="w-full bg-white border border-blue-200 p-4 rounded-xl text-gray-800 font-black focus:outline-none focus:ring-2 focus:ring-blue-300" />
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 bg-yellow-50 hover:bg-yellow-100 p-4 rounded-2xl border border-yellow-200 cursor-pointer transition-colors mt-2" onClick={() => setEsIncentivo(!esIncentivo)}>
-                 <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${esIncentivo ? 'bg-yellow-500 border-yellow-500' : 'bg-white border-yellow-300'}`}>
-                   {esIncentivo && <IconoCheck className="text-white w-3 h-3" />}
-                 </div>
-                 <label className="text-sm font-bold text-yellow-700 cursor-pointer">Otorgar Cortesía Especial</label>
-              </div>
-
-              <div className="pt-2">
-                <button type="submit" disabled={cargando || (!esNuevo && !usuarioSeleccionado)} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-black py-4 rounded-2xl transition-all shadow-md text-lg outline-none">
-                  {cargando ? "Registrando..." : "Guardar Entrada Hoy"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AttendanceGridModal
+        abierto={mostrarModal}
+        usuarios={usuariosDB}
+        registrosDelDia={listaEntrenamientos}
+        fechaCaja={fechaCaja}
+        clasesRestantesPaquete={clasesRestantesPaquete}
+        entradasGratisRestantes={entradasGratisRestantes}
+        visitasPorUsuario={visitasPorUsuario}
+        tarifaPorAtletaProfesor={tarifaPorAtletaProfesor}
+        onCerrar={() => setMostrarModal(false)}
+        onGuardado={() => {
+          setFiltroCaja("pendientes");
+          cargarDatos();
+        }}
+      />
 
       {/* --- MODAL GESTIÓN DE COBRO PRO (CAJA DIARIA) RE-DISEÑADO --- */}
       {mostrarModalAccionCaja && entrenamientoACobrar && (() => {
@@ -896,6 +1042,17 @@ export default function Home() {
                    <h3 className="text-2xl font-black text-gray-800 truncate">{entrenamientoACobrar.usuarios_externos?.nombre}</h3>
                    <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Gestionar Entrada Hoy</p>
                  </div>
+                 <button
+                   type="button"
+                   onClick={() => abrirWhatsAppCliente({
+                     id: entrenamientoACobrar.usuario_id,
+                     nombre: entrenamientoACobrar.usuarios_externos?.nombre || "Cliente",
+                     telefono: entrenamientoACobrar.usuarios_externos?.telefono,
+                   }, "rapido")}
+                   className="w-full bg-green-50 text-green-700 hover:bg-green-100 font-bold py-3 rounded-2xl transition-colors outline-none mb-4"
+                 >
+                   Enviar saldo por WhatsApp
+                 </button>
 
                  <div className="flex bg-gray-100 p-1 rounded-2xl mb-6">
                     <button onClick={() => setAccionCajaTipo('pago')} className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all outline-none ${accionCajaTipo === 'pago' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Registrar Pago</button>
@@ -989,6 +1146,16 @@ export default function Home() {
             <h3 className="text-xl font-bold text-gray-800 leading-tight mb-1">{deudorSeleccionado.nombre}</h3>
             <p className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2">Deuda Acumulada Activa</p>
             <p className="text-5xl font-black text-red-500 mb-6 tracking-tighter">${deudorSeleccionado.montoTotal.toLocaleString('es-CO')}</p>
+            <button
+              type="button"
+              onClick={() => {
+                const usuario = usuariosDB.find((u) => u.id === deudorSeleccionado.usuario_id);
+                if (usuario) abrirWhatsAppCliente(usuario, "rapido");
+              }}
+              className="w-full bg-green-50 text-green-700 hover:bg-green-100 font-bold py-3 rounded-2xl transition-colors outline-none mb-4"
+            >
+              Enviar saldo por WhatsApp
+            </button>
             
             <div className="mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto custom-scrollbar">
                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Historial de Clases Sin Pagar</p>
@@ -1050,6 +1217,36 @@ export default function Home() {
                 {cargando ? "Guardando..." : "Guardar Ficha"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {dialogoApp && (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80] animate-fade-in">
+          <div className="bg-white rounded-[2rem] shadow-2xl border border-gray-100 max-w-md w-full p-6">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${dialogoApp.tipo === "error" ? "bg-red-50 text-red-500" : dialogoApp.tipo === "confirm" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-600"}`}>
+              {dialogoApp.tipo === "error" ? <IconoAlerta /> : dialogoApp.tipo === "confirm" ? <IconoCheck /> : <IconoWallet />}
+            </div>
+            <h3 className="text-xl font-black text-gray-900 mb-2">{dialogoApp.titulo}</h3>
+            <p className="text-sm font-medium text-gray-500 leading-relaxed whitespace-pre-line">{dialogoApp.mensaje}</p>
+            <div className={`mt-6 grid gap-2 ${dialogoApp.tipo === "confirm" ? "grid-cols-2" : "grid-cols-1"}`}>
+              {dialogoApp.tipo === "confirm" && (
+                <button
+                  type="button"
+                  onClick={() => cerrarDialogo(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-2xl transition-colors outline-none"
+                >
+                  {dialogoApp.textoCancelar || "Cancelar"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => cerrarDialogo(true)}
+                className={`${dialogoApp.tipo === "error" ? "bg-red-500 hover:bg-red-600" : "bg-blue-600 hover:bg-blue-700"} text-white font-bold py-3 rounded-2xl transition-colors outline-none`}
+              >
+                {dialogoApp.textoConfirmar || "Aceptar"}
+              </button>
+            </div>
           </div>
         </div>
       )}
