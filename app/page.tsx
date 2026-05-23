@@ -128,6 +128,7 @@ export default function Home() {
   const [verDetalleDeuda, setVerDetalleDeuda] = useState(false);
   const [verDetallePagos, setVerDetallePagos] = useState(false);
   const [mostrarAnual, setMostrarAnual] = useState(false);
+  const [mostrarResumenSemanalCaja, setMostrarResumenSemanalCaja] = useState(false);
   const [topDeudores, setTopDeudores] = useState<any[]>([]);
 
   // --- ESTADOS DE MODALES ---
@@ -244,7 +245,29 @@ export default function Home() {
     return null;
   };
 
-  const generarMensajeWhatsApp = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" = "estado") => {
+  const obtenerRangoSemana = (fechaStr: string) => {
+    const fecha = new Date(fechaStr + "T00:00:00");
+    const inicio = new Date(fecha);
+    inicio.setDate(fecha.getDate() - fecha.getDay());
+    inicio.setHours(0, 0, 0, 0);
+    const fin = new Date(inicio);
+    fin.setDate(inicio.getDate() + 6);
+    fin.setHours(23, 59, 59, 999);
+    return { inicio, fin, inicioStr: getFechaLocal(inicio), finStr: getFechaLocal(fin) };
+  };
+
+  const fechaEnRango = (fechaStr: string, inicio: Date, fin: Date) => {
+    const fecha = new Date(fechaStr + "T00:00:00");
+    return fecha >= inicio && fecha <= fin;
+  };
+
+  const formatearFechaRecordatorio = (fechaStr: string) => {
+    if (!fechaStr) return "";
+    const d = new Date(fechaStr + "T00:00:00");
+    return d.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
+  };
+
+  const generarMensajeWhatsApp = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" | "semana" = "estado") => {
     const deuda = obtenerDeudaCliente(usuario.id);
     const fechaActual = new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", year: "numeric", month: "long", day: "numeric" });
 
@@ -254,6 +277,18 @@ export default function Home() {
 
     if (deuda.saldo <= 0) {
       return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nTe compartimos tu estado de cuenta actualizado.\n\nActualmente no registras saldo pendiente. Tu cuenta se encuentra al día.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
+    }
+
+    if (tipo === "semana") {
+      const { inicio, fin } = obtenerRangoSemana(fechaCaja);
+      const pendientesSemana = deuda.registros.filter((registro: any) => fechaEnRango(registro.fecha_asistencia, inicio, fin));
+      if (pendientesSemana.length > 0) {
+        const totalSemana = pendientesSemana.reduce((sum: number, registro: any) => sum + Number(registro.monto_generado), 0);
+        const detalleSemana = pendientesSemana
+          .map((registro: any) => `- ${formatearFechaRecordatorio(registro.fecha_asistencia)}: $${Number(registro.monto_generado).toLocaleString("es-CO")}`)
+          .join("\n");
+        return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nTe recordamos que esta semana asististe y quedó pendiente un saldo de $${totalSemana.toLocaleString("es-CO")}.\n\nDías pendientes:\n${detalleSemana}\n\nPor favor, realiza el pago pendiente.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
+      }
     }
 
     const detalle = deuda.registros
@@ -266,7 +301,7 @@ export default function Home() {
     return `Hola ${usuario.nombre}, te saluda ${nombreGimnasio}.\n\nTe compartimos tu estado de cuenta actualizado.\n\nActualmente registras un saldo pendiente de $${deuda.saldo.toLocaleString("es-CO")}.\n\n${textoDetalle}\n${detalle}\n\nPor favor, realiza el pago pendiente para mantener tu acceso activo.\n\nFecha de consulta: ${fechaActual}\n\nGracias por entrenar con nosotros.\n${nombreGimnasio}`;
   };
 
-  const abrirWhatsAppCliente = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" = "estado") => {
+  const abrirWhatsAppCliente = (usuario: any, tipo: "recordatorio" | "estado" | "rapido" | "sorteo" | "semana" = "estado") => {
     const telefonoLimpio = limpiarTelefonoWhatsApp(usuario.telefono);
     if (!usuario.telefono) {
       mostrarMensaje("Teléfono no disponible", `No hay teléfono guardado para ${usuario.nombre}.`, "error");
@@ -278,7 +313,7 @@ export default function Home() {
     }
 
     const mensaje = generarMensajeWhatsApp(usuario, tipo);
-    const etiqueta = tipo === "sorteo" ? "aviso del sorteo" : tipo === "recordatorio" ? "recordatorio de pago" : "estado de cuenta";
+    const etiqueta = tipo === "sorteo" ? "aviso del sorteo" : tipo === "semana" ? "recordatorio semanal" : tipo === "recordatorio" ? "recordatorio de pago" : "estado de cuenta";
     pedirConfirmacion("Abrir WhatsApp", `¿Deseas abrir WhatsApp para enviar ${etiqueta} a ${usuario.nombre}?`, "Abrir WhatsApp").then((confirmado) => {
       if (!confirmado) return;
       window.open(`https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
@@ -635,6 +670,43 @@ export default function Home() {
   });
 
   const deudoresFiltrados = listaDeudoresAgrupados.filter(deuda => deuda.nombre.toLowerCase().includes(busquedaDeuda.toLowerCase()));
+  const semanaCaja = obtenerRangoSemana(fechaCaja);
+  const registrosSemanaCaja = registrosGlobales.filter((registro) => fechaEnRango(registro.fecha_asistencia, semanaCaja.inicio, semanaCaja.fin) && Number(registro.cantidad_atletas) > 0);
+  const totalEntradasSemanaCaja = registrosSemanaCaja.reduce((sum, registro) => sum + Number(registro.cantidad_atletas), 0);
+  const asistentesSemanaCaja = Object.values(registrosSemanaCaja.reduce((acc: Record<string, any>, registro) => {
+    const uid = registro.usuario_id || registro.id;
+    if (!acc[uid]) {
+      acc[uid] = {
+        usuario_id: registro.usuario_id,
+        nombre: registro.usuarios_externos?.nombre || "Desconocido",
+        telefono: registro.usuarios_externos?.telefono,
+        tipo_usuario: registro.usuarios_externos?.tipo_usuario,
+        entradas: 0,
+        dias: [],
+      };
+    }
+    acc[uid].entradas += Number(registro.cantidad_atletas);
+    acc[uid].dias.push(registro.fecha_asistencia);
+    return acc;
+  }, {})).sort((a: any, b: any) => a.nombre.localeCompare(b.nombre, "es"));
+  const deudoresSemanaCaja = Object.values(registrosSemanaCaja
+    .filter((registro) => registro.estado_pago === "Pendiente")
+    .reduce((acc: Record<string, any>, registro) => {
+      const uid = registro.usuario_id || registro.id;
+      if (!acc[uid]) {
+        acc[uid] = {
+          usuario_id: registro.usuario_id,
+          nombre: registro.usuarios_externos?.nombre || "Desconocido",
+          telefono: registro.usuarios_externos?.telefono,
+          tipo_usuario: registro.usuarios_externos?.tipo_usuario,
+          montoTotal: 0,
+          registros: [],
+        };
+      }
+      acc[uid].montoTotal += Number(registro.monto_generado);
+      acc[uid].registros.push(registro);
+      return acc;
+    }, {})).sort((a: any, b: any) => b.montoTotal - a.montoTotal);
 
   // --- RENDERING PRINCIPAL ---
   if (pantalla === 'inicio') {
@@ -691,6 +763,103 @@ export default function Home() {
                   <p className="text-3xl font-black text-red-500">${totalFaltanteHoy.toLocaleString('es-CO')}</p>
                 </div>
              </div>
+          </div>
+
+          <div className="fixed right-4 bottom-4 z-40 w-[calc(100vw-2rem)] max-w-md md:right-6 md:bottom-6">
+            {mostrarResumenSemanalCaja ? (
+              <div className="bg-white border border-gray-100 rounded-[2rem] shadow-2xl overflow-hidden animate-fade-in">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-4 bg-gray-50/70">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Semana en Caja</p>
+                    <h3 className="text-lg font-black text-gray-900">Entradas y pendientes</h3>
+                    <p className="text-xs font-bold text-gray-400 capitalize">{formatearFechaConDia(semanaCaja.inicioStr)} - {formatearFechaConDia(semanaCaja.finStr)}</p>
+                  </div>
+                  <button type="button" onClick={() => setMostrarResumenSemanalCaja(false)} className="text-gray-400 hover:text-gray-800 bg-white p-2 rounded-xl outline-none">
+                    <IconoClose />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 p-4 border-b border-gray-100">
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Entradas</p>
+                    <p className="text-2xl font-black text-blue-900">{totalEntradasSemanaCaja}</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Personas</p>
+                    <p className="text-2xl font-black text-gray-800">{asistentesSemanaCaja.length}</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-2xl p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Deben</p>
+                    <p className="text-2xl font-black text-red-500">{deudoresSemanaCaja.length}</p>
+                  </div>
+                </div>
+
+                <div className="max-h-[50vh] overflow-y-auto custom-scrollbar p-4">
+                  {deudoresSemanaCaja.length > 0 ? (
+                    <div className="space-y-3">
+                      {deudoresSemanaCaja.map((deudor: any) => {
+                        const usuario = usuariosDB.find((u) => u.id === deudor.usuario_id);
+                        return (
+                          <div key={deudor.usuario_id || deudor.nombre} className="border border-red-100 bg-red-50/60 rounded-2xl p-4">
+                            <div className="flex justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-black text-gray-900 truncate">{deudor.nombre}</p>
+                                <p className="text-xs font-bold text-red-500">${deudor.montoTotal.toLocaleString("es-CO")} pendiente</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => usuario && abrirWhatsAppCliente(usuario, "semana")}
+                                disabled={!usuario}
+                                className="shrink-0 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-bold px-3 py-2 rounded-xl text-xs outline-none"
+                              >
+                                WhatsApp
+                              </button>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {deudor.registros.map((registro: any) => (
+                                <span key={registro.id} className="bg-white border border-red-100 text-red-600 text-[11px] font-black px-2 py-1 rounded-lg capitalize">
+                                  {formatearFechaRecordatorio(registro.fecha_asistencia)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center">
+                      <p className="text-sm font-bold text-gray-400">Esta semana no hay asistentes con pagos pendientes.</p>
+                    </div>
+                  )}
+
+                  {asistentesSemanaCaja.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">También entraron esta semana</p>
+                      <div className="flex flex-wrap gap-2">
+                        {asistentesSemanaCaja.slice(0, 12).map((asistente: any) => (
+                          <span key={asistente.usuario_id || asistente.nombre} className="bg-gray-100 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-xl">
+                            {asistente.nombre} ({asistente.entradas})
+                          </span>
+                        ))}
+                        {asistentesSemanaCaja.length > 12 && <span className="bg-gray-100 text-gray-400 text-xs font-bold px-3 py-1.5 rounded-xl">+{asistentesSemanaCaja.length - 12}</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMostrarResumenSemanalCaja(true)}
+                className="ml-auto flex items-center gap-3 bg-gray-950 hover:bg-black text-white shadow-2xl rounded-2xl px-5 py-4 outline-none"
+              >
+                <span className="bg-white/10 text-red-200 p-2 rounded-xl"><IconoAlerta /></span>
+                <span className="text-left">
+                  <span className="block text-xs font-black uppercase tracking-widest text-white/60">Semana</span>
+                  <span className="block font-black">{deudoresSemanaCaja.length} pendientes</span>
+                </span>
+              </button>
+            )}
           </div>
 
           {rolActivo === 'admin' && alertasPaquetes.length > 0 && (
@@ -757,6 +926,11 @@ export default function Home() {
                   </div>
                   <div className="p-5 flex-grow text-gray-600">
                     <p className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-lg inline-block text-gray-500 mb-2 uppercase tracking-widest">{item.usuarios_externos?.tipo_usuario}</p>
+                    {item.usuarios_externos?.tipo_usuario === 'Profesor' && Number(item.cantidad_atletas) > 0 && (
+                      <p className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1 rounded-lg inline-block ml-2">
+                        {Number(item.cantidad_atletas)} niñas
+                      </p>
+                    )}
                     <p className="text-3xl font-black text-gray-800 mt-2">${item.monto_generado.toLocaleString('es-CO')}</p>
                     {item.estado_pago === 'Pagado' && item.monto_generado > 0 && <p className="text-xs text-green-600 font-bold mt-2 flex items-center gap-1"><IconoCheck className="w-3 h-3"/> {item.metodo_pago}</p>}
                     {item.estado_pago === 'Pagado' && item.monto_generado === 0 && <p className="text-xs text-blue-600 font-bold mt-2 flex items-center gap-1"><IconoStar /> {item.metodo_pago}</p>}

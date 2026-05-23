@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Search, X } from "lucide-react";
+import { CheckCircle2, Minus, Plus, Search, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Usuario = {
@@ -57,6 +57,7 @@ export function AttendanceGridModal({
   const [busqueda, setBusqueda] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<ToastState>(null);
+  const [cantidadesProfesor, setCantidadesProfesor] = useState<Record<string, number>>({});
 
   const registrosAsistenciaPorUsuario = useMemo(() => {
     const mapa = new Map<string, Registro>();
@@ -71,7 +72,13 @@ export function AttendanceGridModal({
   useEffect(() => {
     if (!abierto) return;
     setSeleccionados(new Set(registrosAsistenciaPorUsuario.keys()));
-  }, [abierto, registrosAsistenciaPorUsuario]);
+    const cantidades: Record<string, number> = {};
+    usuarios.forEach((usuario) => {
+      if (usuario.tipo_usuario?.trim() !== "Profesor") return;
+      cantidades[usuario.id] = Math.max(1, Number(registrosAsistenciaPorUsuario.get(usuario.id)?.cantidad_atletas) || 1);
+    });
+    setCantidadesProfesor(cantidades);
+  }, [abierto, registrosAsistenciaPorUsuario, usuarios]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -93,7 +100,16 @@ export function AttendanceGridModal({
   const idsSeleccionados = Array.from(seleccionados);
   const idsParaAgregar = idsSeleccionados.filter((id) => !seleccionadosIniciales.has(id));
   const idsParaQuitar = Array.from(seleccionadosIniciales).filter((id) => !seleccionados.has(id));
-  const hayCambios = idsParaAgregar.length > 0 || idsParaQuitar.length > 0;
+  const usuariosPorId = useMemo(() => new Map(usuarios.map((usuario) => [usuario.id, usuario])), [usuarios]);
+  const idsProfesorConCantidadEditada = idsSeleccionados.filter((id) => {
+    if (!seleccionadosIniciales.has(id)) return false;
+    const usuario = usuariosPorId.get(id);
+    if (usuario?.tipo_usuario?.trim() !== "Profesor") return false;
+    const cantidadActual = Math.max(1, Number(cantidadesProfesor[id]) || 1);
+    const cantidadGuardada = Math.max(1, Number(registrosAsistenciaPorUsuario.get(id)?.cantidad_atletas) || 1);
+    return cantidadActual !== cantidadGuardada;
+  });
+  const hayCambios = idsParaAgregar.length > 0 || idsParaQuitar.length > 0 || idsProfesorConCantidadEditada.length > 0;
 
   const alternarSeleccion = (id: string) => {
     setMensaje(null);
@@ -103,6 +119,14 @@ export function AttendanceGridModal({
       else siguiente.add(id);
       return siguiente;
     });
+  };
+
+  const ajustarCantidadProfesor = (id: string, cantidad: number) => {
+    setMensaje(null);
+    setCantidadesProfesor((actual) => ({
+      ...actual,
+      [id]: Math.max(1, Math.min(99, cantidad)),
+    }));
   };
 
   const crearRegistro = (usuario: Usuario) => {
@@ -150,8 +174,8 @@ export function AttendanceGridModal({
 
     return {
       usuario_id: usuario.id,
-      cantidad_atletas: 1,
-      monto_generado: esProfesor ? tarifaPorAtletaProfesor : tarifaAtleta,
+      cantidad_atletas: esProfesor ? Math.max(1, Number(cantidadesProfesor[usuario.id]) || 1) : 1,
+      monto_generado: esProfesor ? tarifaPorAtletaProfesor * (Math.max(1, Number(cantidadesProfesor[usuario.id]) || 1)) : tarifaAtleta,
       estado_pago: "Pendiente",
       metodo_pago: null,
       fecha_asistencia: fechaCaja,
@@ -164,7 +188,6 @@ export function AttendanceGridModal({
     setMensaje(null);
 
     try {
-      const usuariosPorId = new Map(usuarios.map((usuario) => [usuario.id, usuario]));
       const nuevosRegistros = idsParaAgregar
         .map((id) => usuariosPorId.get(id))
         .filter((usuario): usuario is Usuario => Boolean(usuario))
@@ -186,7 +209,21 @@ export function AttendanceGridModal({
         }
       }
 
-      setMensaje({ tipo: "success", texto: `Asistencia actualizada: ${idsParaAgregar.length} agregados, ${idsParaQuitar.length} retirados.` });
+      for (const id of idsProfesorConCantidadEditada) {
+        const registro = registrosAsistenciaPorUsuario.get(id);
+        if (!registro) continue;
+        const cantidad = Math.max(1, Number(cantidadesProfesor[id]) || 1);
+        const { error } = await supabase
+          .from("registro_entrenamientos")
+          .update({
+            cantidad_atletas: cantidad,
+            monto_generado: tarifaPorAtletaProfesor * cantidad,
+          })
+          .eq("id", registro.id);
+        if (error) throw error;
+      }
+
+      setMensaje({ tipo: "success", texto: `Asistencia actualizada: ${idsParaAgregar.length} agregados, ${idsParaQuitar.length} retirados, ${idsProfesorConCantidadEditada.length} cantidades ajustadas.` });
       onGuardado();
     } catch (error) {
       setMensaje({ tipo: "error", texto: `No se pudo guardar la asistencia: ${(error as Error).message}` });
@@ -238,12 +275,21 @@ export function AttendanceGridModal({
               const iniciales = usuario.nombre.split(" ").slice(0, 2).map((parte) => parte[0]).join("").toUpperCase();
               const clases = clasesRestantesPaquete[usuario.id] || 0;
               const gratis = entradasGratisRestantes[usuario.id] || 0;
+              const esProfesor = usuario.tipo_usuario?.trim() === "Profesor";
+              const cantidadProfesor = Math.max(1, Number(cantidadesProfesor[usuario.id]) || 1);
 
               return (
-                <button
+                <div
                   key={usuario.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => alternarSeleccion(usuario.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      alternarSeleccion(usuario.id);
+                    }
+                  }}
                   className={`group relative min-h-[172px] rounded-[1.5rem] p-4 text-left transition-all border shadow-sm outline-none overflow-hidden ${
                     seleccionado
                       ? "bg-green-50/90 border-green-400 ring-4 ring-green-100 shadow-lg -translate-y-0.5"
@@ -267,8 +313,43 @@ export function AttendanceGridModal({
                       {clases > 0 && <span className="bg-green-100 text-green-700 text-[10px] font-black px-2 py-1 rounded-lg">{clases} clases</span>}
                       {gratis > 0 && <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-1 rounded-lg">{gratis} gratis</span>}
                     </div>
+
+                    {esProfesor && seleccionado && (
+                      <div className="mt-4 bg-white/90 border border-blue-100 rounded-2xl p-2 shadow-sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2">Niñas que entran</p>
+                        <div className="grid grid-cols-[36px_1fr_36px] items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => ajustarCantidadProfesor(usuario.id, cantidadProfesor - 1)}
+                            className="h-9 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center outline-none disabled:opacity-40"
+                            disabled={cantidadProfesor <= 1}
+                            aria-label="Restar niña"
+                          >
+                            <Minus size={16} strokeWidth={3} />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={cantidadProfesor}
+                            onChange={(e) => ajustarCantidadProfesor(usuario.id, Number(e.target.value))}
+                            className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 text-center text-gray-900 font-black outline-none focus:border-blue-300"
+                            aria-label="Cantidad de niñas"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => ajustarCantidadProfesor(usuario.id, cantidadProfesor + 1)}
+                            className="h-9 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center outline-none"
+                            aria-label="Sumar niña"
+                          >
+                            <Plus size={16} strokeWidth={3} />
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-gray-400 font-bold mt-2">${(tarifaPorAtletaProfesor * cantidadProfesor).toLocaleString("es-CO")} por cobrar</p>
+                      </div>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
