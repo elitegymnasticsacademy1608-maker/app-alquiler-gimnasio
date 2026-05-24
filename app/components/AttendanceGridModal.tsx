@@ -30,6 +30,7 @@ type AttendanceGridModalProps = {
   entradasGratisRestantes: Record<string, number>;
   visitasPorUsuario: Record<string, number>;
   tarifaPorAtletaProfesor: number;
+  onCrearUsuario?: () => void;
   onCerrar: () => void;
   onGuardado: () => void;
 };
@@ -50,6 +51,7 @@ export function AttendanceGridModal({
   entradasGratisRestantes,
   visitasPorUsuario,
   tarifaPorAtletaProfesor,
+  onCrearUsuario,
   onCerrar,
   onGuardado,
 }: AttendanceGridModalProps) {
@@ -250,9 +252,21 @@ export function AttendanceGridModal({
           </div>
 
           <div className="mt-5 flex flex-col md:flex-row gap-3 md:items-center justify-between">
-            <div className="relative w-full md:max-w-md">
-              <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, teléfono o tipo..." className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 bg-white text-gray-800 font-medium focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-300" />
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:max-w-2xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, teléfono o tipo..." className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 bg-white text-gray-800 font-medium focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-300" />
+              </div>
+              {onCrearUsuario && (
+                <button
+                  type="button"
+                  onClick={onCrearUsuario}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-black transition-colors outline-none flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <Plus size={18} strokeWidth={3} />
+                  Nueva persona
+                </button>
+              )}
             </div>
             <div className="flex gap-2 text-sm font-black">
               <span className="bg-blue-50 text-blue-600 px-4 py-2 rounded-2xl border border-blue-100">{seleccionados.size} seleccionados</span>
@@ -355,8 +369,18 @@ export function AttendanceGridModal({
           </div>
 
           {usuariosFiltrados.length === 0 && (
-            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-12 text-center text-gray-400 font-bold">
-              No hay perfiles con esa búsqueda.
+            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-12 text-center">
+              <p className="text-gray-400 font-bold mb-4">No hay perfiles con esa búsqueda.</p>
+              {onCrearUsuario && (
+                <button
+                  type="button"
+                  onClick={onCrearUsuario}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black transition-colors outline-none inline-flex items-center justify-center gap-2"
+                >
+                  <Plus size={18} strokeWidth={3} />
+                  Crear persona
+                </button>
+              )}
             </div>
           )}
         </div>

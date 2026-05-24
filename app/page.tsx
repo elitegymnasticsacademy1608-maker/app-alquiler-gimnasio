@@ -610,6 +610,14 @@ export default function Home() {
     finally { setCargando(false); }
   };
 
+  const abrirModalInscripcion = () => {
+    setUsuarioAEditar(null);
+    setNombreInsc("");
+    setTelefonoInsc("");
+    setTipoInsc("Gimnasta");
+    setMostrarModalInscripcion(true);
+  };
+
   const editarUsuarioInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usuarioAEditar) return;
@@ -740,9 +748,14 @@ export default function Home() {
                   )}
                </div>
                
-               <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none">
-                 Tomar Asistencia
-               </button>
+               <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                 <button onClick={abrirModalInscripcion} className="bg-white hover:bg-gray-50 text-blue-700 border border-blue-100 px-6 py-3.5 rounded-2xl font-bold shadow-sm transition-all outline-none w-full sm:w-auto">
+                   + Nueva persona
+                 </button>
+                 <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl font-bold shadow-md transition-all outline-none w-full sm:w-auto">
+                   Tomar Asistencia
+                 </button>
+               </div>
              </div>
              
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1131,7 +1144,7 @@ export default function Home() {
             <div><h2 className="text-3xl font-black text-gray-800 tracking-tight">Directorio de Atletas</h2></div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <button onClick={realizarSorteoSemanal} disabled={cargando} className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none disabled:opacity-50">Realizar sorteo semanal</button>
-              <button onClick={() => setMostrarModalInscripcion(true)} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none">+ Inscribir Cliente</button>
+              <button onClick={abrirModalInscripcion} className="bg-blue-950 hover:bg-blue-900 text-white px-6 py-3 rounded-2xl font-bold shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center outline-none">+ Inscribir Cliente</button>
             </div>
           </div>
           {ultimoGanadorSorteo && (
@@ -1192,6 +1205,7 @@ export default function Home() {
         entradasGratisRestantes={entradasGratisRestantes}
         visitasPorUsuario={visitasPorUsuario}
         tarifaPorAtletaProfesor={tarifaPorAtletaProfesor}
+        onCrearUsuario={abrirModalInscripcion}
         onCerrar={() => setMostrarModal(false)}
         onGuardado={() => {
           setFiltroCaja("pendientes");
